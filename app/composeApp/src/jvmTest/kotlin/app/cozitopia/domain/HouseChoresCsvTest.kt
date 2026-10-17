@@ -11,7 +11,7 @@ class HouseChoresCsvTest {
 
     private fun choresFile(): File =
         generateSequence(File(System.getProperty("user.dir")).absoluteFile) { it.parentFile }
-            .map { it.resolve("data/house_chores_de.csv") }
+            .map { it.resolve("data/test/house_chores_de.csv") }
             .first { it.isFile }
 
     @Test
@@ -20,7 +20,7 @@ class HouseChoresCsvTest {
 
         val tasks = TaskPlanner.plan(import.rows, emptyList(), today)
 
-        assertEquals(48, import.rows.size)
+        assertEquals(39, import.rows.size)
         assertTrue(import.skippedLines.isEmpty())
         assertTrue(import.rows.none { it.what.startsWith("Was?") })
         assertEquals(
