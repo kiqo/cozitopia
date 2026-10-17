@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 220" width="640" height="220" role="img" aria-label="Cozitopia logo">
+  <rect width="640" height="220" fill="#FFF6EA"/>
+  <!-- icon -->
+  <g transform="translate(40,30)">
+    <circle cx="80" cy="80" r="80" fill="#F4D9BF"/>
+    <!-- ground -->
+    <ellipse cx="80" cy="130" rx="56" ry="6" fill="#A9C99A"/>
+    <!-- cloud -->
+    <g fill="#FFFFFF" transform="translate(16,20) scale(0.8)">
+      <circle cx="16" cy="22" r="11"/>
+      <circle cx="34" cy="14" r="15"/>
+      <circle cx="52" cy="22" r="11"/>
+      <rect x="16" y="22" width="36" height="11"/>
+      <circle cx="16" cy="28" r="5"/>
+      <circle cx="52" cy="28" r="5"/>
+    </g>
+    <!-- house -->
+    <g transform="translate(6,22) scale(0.8)">
+      <path d="M32 84 L80 42 L128 84 V122 a8 8 0 0 1 -8 8 H40 a8 8 0 0 1 -8 -8 Z" fill="#D9683F" stroke="#D9683F" stroke-width="8" stroke-linejoin="round"/>
+      <path d="M24 88 L80 38 L136 88" fill="none" stroke="#8C3A1E" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M64 130 V104 a16 16 0 0 1 32 0 V130 Z" fill="#FFE3A3"/>
+      <path d="M80 80 c-10 -10 -22 2 -10 12 l10 8 l10 -8 c12 -10 0 -22 -10 -12 z" fill="#FFF6EA" transform="translate(0,-14)"/>
+    </g>
+    <!-- tree -->
+    <rect x="125" y="100" width="6" height="28" rx="2" fill="#7A4A2B"/>
+    <circle cx="128" cy="86" r="17" fill="#6FA06B"/>
+    <circle cx="117" cy="98" r="11" fill="#6FA06B"/>
+    <circle cx="139" cy="98" r="11" fill="#6FA06B"/>
+    <!-- flower -->
+    <path d="M24 128 V110" stroke="#6FA06B" stroke-width="3" stroke-linecap="round"/>
+    <g fill="#F29BB0">
+      <circle cx="24" cy="102" r="5"/><circle cx="31" cy="107" r="5"/><circle cx="17" cy="107" r="5"/>
+    </g>
+    <circle cx="24" cy="106" r="4" fill="#FFD25E"/>
+  </g>
+  <!-- wordmark -->
+  <text x="236" y="122" font-family="'Baloo 2','Nunito','Avenir Next Rounded','Trebuchet MS',Georgia,sans-serif" font-size="68" font-weight="700" fill="#5A2A17" letter-spacing="-1">Cozitopia</text>
+  <text x="240" y="156" font-family="'Nunito','Avenir Next','Trebuchet MS',sans-serif" font-size="16" font-weight="600" fill="#D9683F" letter-spacing="3.5">PLAN YOUR DREAM HOME</text>
+</svg>
