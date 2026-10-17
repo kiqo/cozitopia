@@ -115,4 +115,7 @@ enum class StringKey {
     ERROR_INVALID_ROLE,
     ERROR_INVALID_EMAIL,
     ERROR_NETWORK,
+    ERROR_NO_HOMIES,
+    ERROR_NO_TASKS,
+    DISMISS,
 }
