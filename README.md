@@ -24,15 +24,18 @@ supabaseAnonKey=sb_publishable_...
 Alternatively set the environment variables `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
 5. Android only: create `app/local.properties` with `sdk.dir=/path/to/Android/sdk`.
 
-### How to Run the app
+### How to Run
 
-Web, then open the printed URL (usually http://localhost:8080):
+#### Web
 
 ```
 cd app && ./gradlew :composeApp:wasmJsBrowserDevelopmentRun
 ```
+Then open the printed URL (usually http://localhost:8080).
 
-Android, build the APK (`app/androidApp/build/outputs/apk/debug/`) or install it on an attached device:
+#### Android
+
+Build the APK (`app/androidApp/build/outputs/apk/debug/`) or install it on an attached device:
 
 ```
 cd app && ./gradlew :androidApp:assembleDebug
@@ -40,6 +43,11 @@ cd app && ./gradlew :androidApp:installDebug
 ```
 
 After changing the Supabase values, rebuild so they are compiled in.
+
+### SignUp & Login
+
+Sign up a new user with any user name and password (at least 6 characters).
+Then login with this user and password.
 
 ### Tests
 
