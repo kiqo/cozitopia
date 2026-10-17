@@ -6,6 +6,7 @@ import app.cozitopia.data.HomeRepository
 import app.cozitopia.data.TaskRepository
 import app.cozitopia.data.exportFile
 import app.cozitopia.domain.Assignee
+import app.cozitopia.domain.AssigneeKind
 import app.cozitopia.domain.ChecklistCsv
 import app.cozitopia.domain.ChoreTask
 import app.cozitopia.domain.Homie
@@ -15,6 +16,8 @@ import app.cozitopia.domain.TaskWarning
 import app.cozitopia.i18n.StringKey
 import app.cozitopia.ui.ScreenViewModel
 import app.cozitopia.ui.today
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -30,6 +33,7 @@ data class ChecklistState(
         get() = when {
             tasks.isEmpty() -> StringKey.ERROR_NO_TASKS
             homies.isEmpty() -> StringKey.ERROR_NO_HOMIES
+            tasks.none { it.assignee.kind == AssigneeKind.UNASSIGNED } -> StringKey.ERROR_NO_UNASSIGNED
             else -> null
         }
 
@@ -58,6 +62,11 @@ class ChecklistViewModel(
 
     fun downloadTemplate() = launchCatching {
         exportFile(TEMPLATE_FILE_NAME, CSV_MIME_TYPE, ChecklistCsv.TEMPLATE)
+    }
+
+    fun exportChecklist() = launchCatching {
+        val state = mutableState.value
+        exportFile(EXPORT_FILE_NAME, CSV_MIME_TYPE, ChecklistCsv.export(state.tasks, state.homies))
     }
 
     fun importCsv(readText: suspend () -> String) = launchCatching {
@@ -94,6 +103,11 @@ class ChecklistViewModel(
     fun setRecurrence(taskId: String, recurrence: Recurrence) =
         edit(taskId) { task, _ -> TaskPlanner.withRecurrence(task, recurrence) }
 
+    fun setStart(taskId: String, date: LocalDate, time: LocalTime) =
+        edit(taskId) { task, _ -> if (task.recurrence == null) task else TaskPlanner.withStart(task, date, time) }
+
+    fun unpin(taskId: String) = edit(taskId) { task, _ -> TaskPlanner.unpinned(task) }
+
     fun delete(taskId: String) = mutableState.update { state ->
         state.copy(tasks = TaskPlanner.schedule(state.tasks.filterNot { it.id == taskId }, state.homies, today()))
     }
@@ -128,6 +142,7 @@ class ChecklistViewModel(
         }
 
     private companion object {
+        const val EXPORT_FILE_NAME = "happy-home-checklist.csv"
         const val TEMPLATE_FILE_NAME = "cozitopia-template.csv"
         const val CSV_MIME_TYPE = "text/csv"
     }

@@ -57,6 +57,14 @@ Then login with this user and password.
 
 Columns `What, Where, Frequency, Duration, Assignee` with an optional header; comma, semicolon or tab delimiters; several assignees separated by `;`; `Everyone` / `Unassigned` (or their German and French equivalents) for all or nobody. Use "Download template" in the checklist screen for an example, see `ChecklistCsv.TEMPLATE`.
 
+"Export CSV" writes `What, Where, Frequency, Duration, Assignee, Repetition, Next Start, Pinned` (header always present, comma delimiter, UTF-8) and importing that file restores the rows. `Repetition` uses one English grammar regardless of the UI language, parsed case-insensitively and tolerant of spacing:
+
+- `Every N day(s)`
+- `Every N week(s), Sunday`
+- `Every N month(s)` or `Every N year(s)` followed by `, 1st|2nd|3rd|4th|last Sunday` or `, day D`, and optionally `, month M`
+
+Examples: `Every 1 year(s), 1st Sunday, month 4`, `Every 6 month(s), 1st Sunday`, `Every 1 week(s), Sunday`, `Every 3 day(s)`, `Every 1 year(s), day 15, month 8`. A non-empty Repetition replaces the proposal from Frequency; an unparseable one flags the row. `Next Start` is `yyyy-MM-dd HH:mm` (local time); a valid Next Start pins the task (it is kept when dates are recomputed, other tasks are packed around it) unless `Pinned` is `false`, in which case the date is ignored and recomputed. Editing the Next Start column in the table pins the task; the lock icon unpins it. "Assign all Tasks" only assigns tasks that are Unassigned.
+
 ### License
 
 Licensed under the Apache License 2.0 (Apache-2.0), see [LICENSE](LICENSE).
