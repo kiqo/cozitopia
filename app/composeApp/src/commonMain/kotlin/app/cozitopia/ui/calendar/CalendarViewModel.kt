@@ -27,6 +27,10 @@ sealed interface CalendarFilter {
         override fun matches(task: ChoreTask) = true
     }
 
+    data class Me(val userId: String) : CalendarFilter {
+        override fun matches(task: ChoreTask) = IcsExporter.isOwn(task, userId)
+    }
+
     data class Person(val userId: String) : CalendarFilter {
         override fun matches(task: ChoreTask) =
             task.assignee.kind == AssigneeKind.PEOPLE && task.assignee.includes(userId)
@@ -73,12 +77,10 @@ class CalendarViewModel(
     private val mutableState = MutableStateFlow(CalendarState())
     val state: StateFlow<CalendarState> = mutableState
 
-    init {
-        launchCatching {
-            val tasks = taskRepository.tasks(homeId)
-            val homies = homes.members(homeId).map { it.homie }
-            mutableState.update { it.copy(tasks = tasks, homies = homies) }
-        }
+    fun refresh() = launchCatching {
+        val tasks = taskRepository.tasks(homeId)
+        val homies = homes.members(homeId).map { it.homie }
+        mutableState.update { it.copy(tasks = tasks, homies = homies) }
     }
 
     fun filterBy(filter: CalendarFilter) = mutableState.update { it.copy(filter = filter) }

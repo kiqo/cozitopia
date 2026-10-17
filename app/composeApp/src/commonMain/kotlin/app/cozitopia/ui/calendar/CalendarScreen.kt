@@ -20,6 +20,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,6 +46,7 @@ fun CalendarScreen(viewModel: CalendarViewModel, myUserId: String, modifier: Mod
     val strings = LocalStrings.current
     val state by viewModel.state.collectAsState()
     var exporting by remember { mutableStateOf(false) }
+    LaunchedEffect(viewModel) { viewModel.refresh() }
     val occurrences = remember(state.tasks, state.filter) { state.occurrences }
     val others = state.homies.filter { it.userId != myUserId }
 
@@ -59,7 +61,7 @@ fun CalendarScreen(viewModel: CalendarViewModel, myUserId: String, modifier: Mod
         }
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterOption(state.filter, CalendarFilter.All, strings(StringKey.FILTER_ALL), viewModel)
-            FilterOption(state.filter, CalendarFilter.Person(myUserId), strings(StringKey.FILTER_ME), viewModel)
+            FilterOption(state.filter, CalendarFilter.Me(myUserId), strings(StringKey.FILTER_ME), viewModel)
             others.forEach { FilterOption(state.filter, CalendarFilter.Person(it.userId), it.name, viewModel) }
             FilterOption(state.filter, CalendarFilter.Everyone, strings(StringKey.EVERYONE), viewModel)
             FilterOption(state.filter, CalendarFilter.Unassigned, strings(StringKey.UNASSIGNED), viewModel)

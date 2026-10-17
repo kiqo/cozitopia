@@ -50,7 +50,7 @@ object IcsExporter {
         line("END:VCALENDAR")
     }
 
-    private fun isOwn(task: ChoreTask, me: String): Boolean =
+    fun isOwn(task: ChoreTask, me: String): Boolean =
         task.assignee.kind == AssigneeKind.UNASSIGNED || task.assignee.includes(me)
 
     private fun StringBuilder.line(content: String) {

@@ -126,7 +126,7 @@ private fun NotConfiguredApp(language: AppLanguage, onLanguageChange: (AppLangua
 
 @Composable
 private fun ConfiguredApp(language: AppLanguage, onLanguageChange: (AppLanguage) -> Unit) {
-    val container = remember { AppContainer(SupabaseProvider.create()) }
+    val container = viewModel { AppContainer(SupabaseProvider.create()) }
     val authViewModel = viewModel { AuthViewModel(container.auth, container.errors) }
     val authState by authViewModel.state.collectAsState()
     val snackbarHost = remember { SnackbarHostState() }

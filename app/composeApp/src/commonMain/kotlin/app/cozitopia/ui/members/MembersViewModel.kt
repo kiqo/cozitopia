@@ -18,20 +18,18 @@ class MembersViewModel(
     private val mutableMembers = MutableStateFlow<List<Member>>(emptyList())
     val members: StateFlow<List<Member>> = mutableMembers
 
-    init {
-        refresh()
-    }
-
     fun refresh() = launchCatching { mutableMembers.value = repository.members(homeId) }
 
     fun changeRole(userId: String, role: Role) = launchCatching {
         repository.changeRole(homeId, userId, role)
         mutableMembers.value = repository.members(homeId)
+        onMembershipChanged()
     }
 
     fun remove(userId: String) = launchCatching {
         repository.removeMember(homeId, userId)
         mutableMembers.value = repository.members(homeId)
+        onMembershipChanged()
     }
 
     fun leave(userId: String) = launchCatching {
