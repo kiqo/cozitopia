@@ -50,7 +50,7 @@ val generateAppConfig = tasks.register<GenerateAppConfig>("generateAppConfig") {
 kotlin {
     android {
         namespace = "app.cozitopia.shared"
-        compileSdk = 36
+        compileSdk = 37
         minSdk = 26
     }
     jvm()

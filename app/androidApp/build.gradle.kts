@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "app.cozitopia"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "app.cozitopia"
