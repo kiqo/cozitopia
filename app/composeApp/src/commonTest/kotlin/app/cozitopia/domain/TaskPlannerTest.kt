@@ -104,9 +104,12 @@ class TaskPlannerTest {
 
     @Test
     fun treatsUnfilledTasksAsZeroHoursWhenAssigning() {
-        val unfilled = task("a", 60, yearly).copy(recurrence = null, nextDate = null)
+        val unfilled = task("a", 60, yearly, Assignee.Unassigned).copy(recurrence = null, nextDate = null)
 
-        val assigned = TaskPlanner.assignEvenly(listOf(unfilled, task("b", 60, monthly)), listOf(alice, bob))
+        val assigned = TaskPlanner.assignEvenly(
+            listOf(unfilled, task("b", 60, monthly, Assignee.Unassigned)),
+            listOf(alice, bob),
+        )
 
         assertEquals(0.0, TaskPlanner.yearlyHours(unfilled))
         assertNull(assigned.first().recurrence)
@@ -169,33 +172,71 @@ class TaskPlannerTest {
     }
 
     @Test
-    fun assignsEveryTaskGreedilyByYearlyLoad() {
+    fun assignsOnlyUnassignedTasksBalancedOnTopOfExistingLoad() {
         val tasks = listOf(
-            task("small", 60, yearly),
+            task("mine", 60, yearly, Assignee.of("u1")),
+            task("shared", 60, monthly, Assignee.of("u1", "u2")),
+            task("all", 600, yearly),
+            task("open", 60, yearly, Assignee.Unassigned),
+        )
+
+        val assigned = TaskPlanner.assignEvenly(tasks, listOf(alice, bob)).associate { it.id to it.assignee }
+
+        assertEquals(Assignee.of("u1"), assigned["mine"])
+        assertEquals(Assignee.of("u1", "u2"), assigned["shared"])
+        assertEquals(Assignee.Everyone, assigned["all"])
+        assertEquals(Assignee.of("u2"), assigned["open"])
+    }
+
+    @Test
+    fun balancesSeveralUnassignedTasksGreedily() {
+        val tasks = listOf(
+            task("small", 60, yearly, Assignee.Unassigned),
             task("big", 60, monthly, Assignee.Unassigned),
-            task("medium", 180, yearly),
-            task("tiny", 120, yearly, Assignee.of("u2")),
+            task("medium", 180, yearly, Assignee.Unassigned),
         )
 
         val assigned = TaskPlanner.assignEvenly(tasks, listOf(alice, bob)).associate { it.id to it.assignee }
 
         assertEquals(Assignee.of("u1"), assigned["big"])
         assertEquals(Assignee.of("u2"), assigned["medium"])
-        assertEquals(Assignee.of("u2"), assigned["tiny"])
         assertEquals(Assignee.of("u2"), assigned["small"])
     }
 
     @Test
-    fun assignsAllTasksToSingleHomieAndClearsUnknownAssigneeWarning() {
-        val tasks = listOf(
-            task("a", 60, yearly).copy(warnings = setOf(TaskWarning.UNKNOWN_ASSIGNEE)),
-            task("b", 60, monthly, Assignee.Unassigned),
-        )
+    fun clearsUnknownAssigneeWarningWhenAssigning() {
+        val tasks = listOf(task("a", 60, yearly, Assignee.Unassigned).copy(warnings = setOf(TaskWarning.UNKNOWN_ASSIGNEE)))
 
         val assigned = TaskPlanner.assignEvenly(tasks, listOf(alice))
 
-        assertTrue(assigned.all { it.assignee == Assignee.of("u1") })
-        assertTrue(assigned.all { it.warnings.isEmpty() })
+        assertEquals(Assignee.of("u1"), assigned.single().assignee)
+        assertTrue(assigned.single().warnings.isEmpty())
+    }
+
+    @Test
+    fun keepsPinnedTasksAndPacksOthersAroundThem() {
+        val pinned = task("pin", 60, daily, Assignee.of("u1"))
+            .copy(nextDate = today, startTime = LocalTime(12, 0), pinned = true)
+        val tasks = listOf(pinned, task("a", 120, daily, Assignee.of("u1")), task("b", 60, daily, Assignee.of("u1")))
+
+        val planned = TaskPlanner.schedule(tasks, listOf(alice), today)
+
+        assertEquals(LocalTime(12, 0), planned[0].startTime)
+        assertEquals(today, planned[0].nextDate)
+        assertTrue(planned[0].pinned)
+        assertEquals(listOf(LocalTime(10, 0), LocalTime(13, 0)), planned.drop(1).map { it.startTime })
+        assertEquals(setOf(today), planned.map { it.nextDate }.toSet())
+    }
+
+    @Test
+    fun returnsUnpinnedTaskToComputedPlacement() {
+        val pinned = task("pin", 60, daily, Assignee.of("u1"))
+            .copy(nextDate = LocalDate(2027, 1, 5), startTime = LocalTime(15, 30), pinned = true)
+
+        val planned = TaskPlanner.schedule(listOf(TaskPlanner.unpinned(pinned)), listOf(alice), today).single()
+
+        assertEquals(today, planned.nextDate)
+        assertEquals(LocalTime(10, 0), planned.startTime)
     }
 
     @Test

@@ -34,6 +34,13 @@ class ChecklistStateTest {
     }
 
     @Test
+    fun assignIsBlockedWithoutUnassignedTasks() {
+        val state = ChecklistState(homies = listOf(homie), tasks = listOf(task.copy(assignee = Assignee.Everyone)))
+
+        assertEquals(StringKey.ERROR_NO_UNASSIGNED, state.assignBlocker)
+    }
+
+    @Test
     fun assignIsAllowedWithHomiesAndTasks() {
         val state = ChecklistState(homies = listOf(homie), tasks = listOf(task))
 

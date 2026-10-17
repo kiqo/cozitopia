@@ -14,7 +14,7 @@ enum class Ordinal { FIRST, SECOND, THIRD, FOURTH, LAST }
 
 enum class AssigneeKind { EVERYONE, UNASSIGNED, PEOPLE }
 
-enum class TaskWarning { UNKNOWN_ASSIGNEE, INVALID_DURATION, UNRECOGNIZED_FREQUENCY, EXCEEDS_DAY }
+enum class TaskWarning { UNKNOWN_ASSIGNEE, INVALID_DURATION, UNRECOGNIZED_FREQUENCY, EXCEEDS_DAY, INVALID_START }
 
 @Serializable
 data class DayWindow(
@@ -83,5 +83,6 @@ data class ChoreTask(
     val recurrence: Recurrence?,
     val nextDate: LocalDate?,
     val startTime: LocalTime? = null,
+    @Transient val pinned: Boolean = false,
     @Transient val warnings: Set<TaskWarning> = emptySet(),
 )

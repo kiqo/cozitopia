@@ -13,6 +13,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -39,7 +40,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import app.cozitopia.domain.ChecklistCsv
 import app.cozitopia.domain.ChoreTask
+import app.cozitopia.domain.DayWindow
 import app.cozitopia.domain.Homie
 import app.cozitopia.domain.Schedule
 import app.cozitopia.domain.TaskPlanner
@@ -50,6 +53,7 @@ import app.cozitopia.i18n.LocalStrings
 import app.cozitopia.i18n.StringKey
 import app.cozitopia.i18n.Strings
 import app.cozitopia.ui.assigneeLabel
+import app.cozitopia.ui.today
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import io.github.vinceglb.filekit.readString
@@ -60,8 +64,7 @@ private val FREQUENCY_WIDTH = 130.dp
 private val DURATION_WIDTH = 110.dp
 private val ASSIGNEE_WIDTH = 190.dp
 private val REPETITION_WIDTH = 230.dp
-private val DATE_WIDTH = 130.dp
-private val TIME_WIDTH = 90.dp
+private val START_WIDTH = 210.dp
 private val DELETE_WIDTH = 56.dp
 private val WARNING_WIDTH = 300.dp
 
@@ -70,6 +73,7 @@ private fun warningKey(warning: TaskWarning): StringKey = when (warning) {
     TaskWarning.INVALID_DURATION -> StringKey.WARN_INVALID_DURATION
     TaskWarning.UNRECOGNIZED_FREQUENCY -> StringKey.WARN_UNRECOGNIZED_FREQUENCY
     TaskWarning.EXCEEDS_DAY -> StringKey.WARN_EXCEEDS_DAY
+    TaskWarning.INVALID_START -> StringKey.WARN_INVALID_START
 }
 
 @Composable
@@ -89,6 +93,9 @@ fun ChecklistScreen(viewModel: ChecklistViewModel, onOpenCalendar: () -> Unit, m
         Text(text = strings(StringKey.CHECKLIST_HELP), style = MaterialTheme.typography.bodySmall)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = viewModel::downloadTemplate) { Text(strings(StringKey.DOWNLOAD_TEMPLATE)) }
+            OutlinedButton(onClick = viewModel::exportChecklist, enabled = state.tasks.isNotEmpty()) {
+                Text(strings(StringKey.EXPORT_CSV))
+            }
             Button(onClick = { picker.launch() }) { Text(strings(StringKey.UPLOAD_CSV)) }
         }
         if (state.skippedLines.isNotEmpty()) {
@@ -148,8 +155,7 @@ private fun TaskTable(
             HeaderCell(StringKey.COL_DURATION, DURATION_WIDTH)
             HeaderCell(StringKey.COL_ASSIGNEE, ASSIGNEE_WIDTH)
             HeaderCell(StringKey.COL_REPETITION, REPETITION_WIDTH)
-            HeaderCell(StringKey.COL_NEXT_DATE, DATE_WIDTH)
-            HeaderCell(StringKey.COL_START_TIME, TIME_WIDTH)
+            HeaderCell(StringKey.COL_NEXT_DATE, START_WIDTH)
             HeaderCell(StringKey.DELETE, DELETE_WIDTH)
         }
         tasks.forEach { task -> key(importCount, task.id) { TaskRow(task, homies, viewModel, strings) } }
@@ -231,11 +237,7 @@ private fun TaskRow(task: ChoreTask, homies: List<Homie>, viewModel: ChecklistVi
         OutlinedButton(onClick = { editingRecurrence = true }, modifier = Modifier.width(REPETITION_WIDTH)) {
             Text(task.recurrence?.let { describeRecurrence(it, strings) } ?: strings(StringKey.SET_REPETITION))
         }
-        Text(text = task.nextDate?.let(strings::date).orEmpty(), modifier = Modifier.width(DATE_WIDTH))
-        Text(
-            text = task.startTime?.takeIf { task.durationMinutes > 0 }?.toString().orEmpty(),
-            modifier = Modifier.width(TIME_WIDTH),
-        )
+        StartCell(task, viewModel, strings, Modifier.width(START_WIDTH))
         IconButton(onClick = { viewModel.delete(task.id) }, modifier = Modifier.width(DELETE_WIDTH)) {
             Icon(Icons.Filled.Delete, contentDescription = strings(StringKey.DELETE))
         }
@@ -251,6 +253,35 @@ private fun TaskRow(task: ChoreTask, homies: List<Homie>, viewModel: ChecklistVi
             recurrence = task.recurrence ?: Schedule.defaultRecurrence(TaskPlanner.windowFor(task.assignee, homies).weekday),
             onChange = { viewModel.setRecurrence(task.id, it) },
             onDismiss = { editingRecurrence = false },
+        )
+    }
+}
+
+@Composable
+private fun StartCell(task: ChoreTask, viewModel: ChecklistViewModel, strings: Strings, modifier: Modifier) {
+    var picking by remember { mutableStateOf(false) }
+    val date = task.nextDate
+    val time = task.startTime
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        OutlinedButton(
+            onClick = { picking = true },
+            enabled = task.recurrence != null,
+            modifier = Modifier.weight(1f),
+        ) {
+            Text(if (date != null && time != null) ChecklistCsv.formatStart(date, time) else "")
+        }
+        if (task.pinned) {
+            IconButton(onClick = { viewModel.unpin(task.id) }) {
+                Icon(Icons.Filled.Lock, contentDescription = strings(StringKey.UNPIN))
+            }
+        }
+    }
+    if (picking) {
+        StartPickerDialog(
+            date = date ?: today(),
+            time = time ?: DayWindow.DEFAULT.start,
+            onConfirm = { pickedDate, pickedTime -> viewModel.setStart(task.id, pickedDate, pickedTime) },
+            onDismiss = { picking = false },
         )
     }
 }
