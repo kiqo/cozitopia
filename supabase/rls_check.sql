@@ -45,6 +45,10 @@ begin
             where email = 'b@example.test') = 'Bea', 'display_name metadata';
     assert (select display_name from public.profiles
             where email = 'a@example.test') = 'a', 'display_name fallback';
+    assert (select count(*) from public.profiles
+            where email like '%@example.test' and preferred_weekday = 7
+                and preferred_start_time = '10:00' and latest_end_time = '18:00') = 3,
+        'preferences default to Sunday 10:00 to 18:00';
 end;
 $$;
 
@@ -56,6 +60,21 @@ do $$
 declare
     new_home public.homes;
 begin
+    update public.profiles
+    set preferred_weekday = 1, preferred_start_time = '17:00', latest_end_time = '22:00'
+    where id = '00000000-0000-0000-0000-00000000000a';
+    assert (select preferred_weekday from public.profiles
+            where id = '00000000-0000-0000-0000-00000000000a') = 1
+        and (select preferred_start_time from public.profiles
+            where id = '00000000-0000-0000-0000-00000000000a') = '17:00'
+        and (select latest_end_time from public.profiles
+            where id = '00000000-0000-0000-0000-00000000000a') = '22:00',
+        'user changes own preferences';
+    perform public.rls_check_expect(
+        format('update public.profiles set preferred_weekday = 8 where id = %L',
+            '00000000-0000-0000-0000-00000000000a'),
+        'new row for relation "profiles" violates check constraint "profiles_preferred_weekday_check"'
+    );
     new_home := public.create_home('   ');
     assert new_home.name = 'MyHome', 'blank name becomes MyHome';
     perform set_config('rls_check.home', new_home.id::text, true);
@@ -110,6 +129,13 @@ begin
     assert (select count(*) from public.tasks) = 1, 'tasks visible after accept';
     assert (select count(*) from public.home_members) = 2, 'members visible after accept';
     assert (select count(*) from public.profiles) = 2, 'shared-home profiles visible';
+    update public.profiles set preferred_weekday = 2, latest_end_time = '23:00'
+    where id = '00000000-0000-0000-0000-00000000000a';
+    get diagnostics affected = row_count;
+    assert affected = 0, 'homie cannot change another weekday';
+    assert (select preferred_weekday from public.profiles
+            where id = '00000000-0000-0000-0000-00000000000a') = 1,
+        'other preferences unchanged';
     assert (select role from public.home_members
             where user_id = '00000000-0000-0000-0000-00000000000b') = 'HOMIE',
         'role comes from invitation';
@@ -161,12 +187,16 @@ begin
     );
     perform public.save_tasks(
         target_home,
-        '[{"what": "First", "assignee_kind": "EVERYONE", "recurrence": {}, "next_date": "2026-10-17"},
+        '[{"what": "First", "assignee_kind": "EVERYONE", "recurrence": {}, "next_date": "2026-10-17", "start_time": "16:00"},
           {"what": "Second", "assignee_kind": "PEOPLE",
            "assignee_ids": ["00000000-0000-0000-0000-00000000000b"],
            "recurrence": {}, "next_date": "2026-10-18"}]'::jsonb
     );
     assert (select count(*) from public.tasks) = 2, 'first batch saved';
+    assert (select start_time from public.tasks where what = 'First') = '16:00',
+        'start_time round-trips';
+    assert (select start_time from public.tasks where what = 'Second') = '10:00',
+        'start_time defaults to 10:00';
     perform public.save_tasks(
         target_home,
         '[{"what": "Third", "assignee_kind": "UNASSIGNED", "recurrence": {}, "next_date": "2026-10-19"}]'::jsonb
