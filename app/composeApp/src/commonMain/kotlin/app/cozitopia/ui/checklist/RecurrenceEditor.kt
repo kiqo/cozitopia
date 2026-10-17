@@ -57,7 +57,7 @@ fun RecurrenceEditorDialog(
     val strings = LocalStrings.current
     var draft by remember { mutableStateOf(RecurrenceDraft.from(recurrence)) }
     fun update(transform: (RecurrenceDraft) -> RecurrenceDraft) {
-        draft = transform(draft)
+        draft = transform(draft).withValidMode()
         onChange(RecurrenceDraft.normalized(draft).toRecurrence())
     }
 
@@ -67,15 +67,6 @@ fun RecurrenceEditorDialog(
         title = { Text(strings(StringKey.COL_REPETITION)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    RepeatMode.entries.forEach { mode ->
-                        FilterChip(
-                            selected = draft.mode == mode,
-                            onClick = { update { it.copy(mode = mode) } },
-                            label = { Text(strings(mode.key())) },
-                        )
-                    }
-                }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(strings(StringKey.EVERY))
                     OutlinedTextField(
@@ -91,6 +82,17 @@ fun RecurrenceEditorDialog(
                         onSelect = { unit -> update { it.copy(unit = unit) } },
                     )
                 }
+                if (draft.unit.repeatModes().size > 1) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        draft.unit.repeatModes().forEach { mode ->
+                            FilterChip(
+                                selected = draft.mode == mode,
+                                onClick = { update { it.copy(mode = mode) } },
+                                label = { Text(strings(mode.key())) },
+                            )
+                        }
+                    }
+                }
                 if (draft.mode == RepeatMode.ORDINAL_WEEKDAY) {
                     DropdownSelect(
                         selected = strings(draft.ordinal.key()),
@@ -99,7 +101,7 @@ fun RecurrenceEditorDialog(
                         onSelect = { ordinal -> update { it.copy(ordinal = ordinal) } },
                     )
                 }
-                if (draft.mode != RepeatMode.DATE) {
+                if (draft.unit != RecurrenceUnit.DAY && draft.mode != RepeatMode.DATE) {
                     DropdownSelect(
                         selected = strings(draft.weekday.key()),
                         options = DayOfWeek.entries,
@@ -119,13 +121,15 @@ fun RecurrenceEditorDialog(
                             modifier = Modifier.width(NUMBER_FIELD_WIDTH),
                         )
                     }
-                    OutlinedTextField(
-                        value = draft.month?.toString().orEmpty(),
-                        onValueChange = { text -> update { it.copy(month = text.toIntOrNull()) } },
-                        label = { Text(strings(StringKey.MONTH)) },
-                        singleLine = true,
-                        modifier = Modifier.width(NUMBER_FIELD_WIDTH),
-                    )
+                    if (draft.usesMonth) {
+                        OutlinedTextField(
+                            value = draft.month?.toString().orEmpty(),
+                            onValueChange = { text -> update { it.copy(month = text.toIntOrNull()) } },
+                            label = { Text(strings(StringKey.MONTH)) },
+                            singleLine = true,
+                            modifier = Modifier.width(NUMBER_FIELD_WIDTH),
+                        )
+                    }
                 }
             }
         },

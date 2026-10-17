@@ -7,6 +7,12 @@ import kotlinx.datetime.DayOfWeek
 
 enum class RepeatMode { ORDINAL_WEEKDAY, WEEKDAY, DATE }
 
+fun RecurrenceUnit.repeatModes(): List<RepeatMode> = when (this) {
+    RecurrenceUnit.DAY -> emptyList()
+    RecurrenceUnit.WEEK -> listOf(RepeatMode.WEEKDAY)
+    RecurrenceUnit.MONTH, RecurrenceUnit.YEAR -> listOf(RepeatMode.ORDINAL_WEEKDAY, RepeatMode.DATE)
+}
+
 data class RecurrenceDraft(
     val mode: RepeatMode,
     val unit: RecurrenceUnit,
@@ -16,11 +22,18 @@ data class RecurrenceDraft(
     val dayOfMonth: Int,
     val month: Int?,
 ) {
-    fun toRecurrence(): Recurrence = when (mode) {
-        RepeatMode.ORDINAL_WEEKDAY ->
-            Recurrence(unit, interval, weekday, ordinal, month = month)
-        RepeatMode.WEEKDAY -> Recurrence(unit, interval, weekday)
-        RepeatMode.DATE -> Recurrence(unit, interval, month = month, dayOfMonth = dayOfMonth)
+    val usesMonth: Boolean get() = unit == RecurrenceUnit.MONTH || unit == RecurrenceUnit.YEAR
+
+    fun withValidMode(): RecurrenceDraft {
+        val modes = unit.repeatModes()
+        return if (mode in modes || modes.isEmpty()) this else copy(mode = modes.first())
+    }
+
+    fun toRecurrence(): Recurrence = when {
+        unit == RecurrenceUnit.DAY -> Recurrence(unit, interval)
+        unit == RecurrenceUnit.WEEK -> Recurrence(unit, interval, weekday)
+        mode == RepeatMode.ORDINAL_WEEKDAY -> Recurrence(unit, interval, weekday, ordinal, month = month)
+        else -> Recurrence(unit, interval, month = month, dayOfMonth = dayOfMonth)
     }
 
     companion object {
@@ -28,10 +41,12 @@ data class RecurrenceDraft(
         private const val MAX_DAY = 31
 
         fun from(recurrence: Recurrence): RecurrenceDraft = RecurrenceDraft(
-            mode = when {
-                recurrence.ordinal != null && recurrence.weekday != null -> RepeatMode.ORDINAL_WEEKDAY
-                recurrence.dayOfMonth != null || recurrence.weekday == null -> RepeatMode.DATE
-                else -> RepeatMode.WEEKDAY
+            mode = if (recurrence.ordinal != null && recurrence.weekday != null) {
+                RepeatMode.ORDINAL_WEEKDAY
+            } else if (recurrence.unit == RecurrenceUnit.WEEK) {
+                RepeatMode.WEEKDAY
+            } else {
+                RepeatMode.DATE
             },
             unit = recurrence.unit,
             interval = recurrence.interval,
@@ -39,7 +54,7 @@ data class RecurrenceDraft(
             weekday = recurrence.weekday ?: DayOfWeek.SATURDAY,
             dayOfMonth = recurrence.dayOfMonth ?: 1,
             month = recurrence.month,
-        )
+        ).withValidMode()
 
         fun normalized(draft: RecurrenceDraft): RecurrenceDraft = draft.copy(
             interval = draft.interval.coerceAtLeast(1),
