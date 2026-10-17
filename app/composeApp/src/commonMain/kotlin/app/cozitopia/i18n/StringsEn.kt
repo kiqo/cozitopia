@@ -118,4 +118,10 @@ val stringsEn: Map<StringKey, String> = mapOf(
     StringKey.ERROR_NO_HOMIES to "No homies loaded, cannot assign tasks.",
     StringKey.ERROR_NO_TASKS to "There are no tasks to assign.",
     StringKey.DISMISS to "Dismiss",
+    StringKey.SUMMARY_TITLE to "Workload per homie",
+    StringKey.SUMMARY_YEARLY to "Per year: {minutes}",
+    StringKey.SUMMARY_MONTHLY to "Per month: {minutes}",
+    StringKey.SUMMARY_TASKS to "Tasks: {count}",
+    StringKey.SUMMARY_ROOMS to "Rooms: {rooms}",
+    StringKey.SUMMARY_NO_ROOMS to "Rooms: none",
 )

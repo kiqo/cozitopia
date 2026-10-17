@@ -118,4 +118,10 @@ val stringsFr: Map<StringKey, String> = mapOf(
     StringKey.ERROR_NO_HOMIES to "Aucun colocataire chargé, impossible d'attribuer les tâches.",
     StringKey.ERROR_NO_TASKS to "Il n'y a aucune tâche à attribuer.",
     StringKey.DISMISS to "Fermer",
+    StringKey.SUMMARY_TITLE to "Charge par colocataire",
+    StringKey.SUMMARY_YEARLY to "Par an : {minutes}",
+    StringKey.SUMMARY_MONTHLY to "Par mois : {minutes}",
+    StringKey.SUMMARY_TASKS to "Tâches : {count}",
+    StringKey.SUMMARY_ROOMS to "Pièces : {rooms}",
+    StringKey.SUMMARY_NO_ROOMS to "Pièces : aucune",
 )

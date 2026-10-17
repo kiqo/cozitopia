@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -43,6 +44,8 @@ import app.cozitopia.domain.Homie
 import app.cozitopia.domain.Schedule
 import app.cozitopia.domain.TaskPlanner
 import app.cozitopia.domain.TaskWarning
+import app.cozitopia.domain.Workload
+import app.cozitopia.domain.WorkloadSummary
 import app.cozitopia.i18n.LocalStrings
 import app.cozitopia.i18n.StringKey
 import app.cozitopia.i18n.Strings
@@ -96,6 +99,7 @@ fun ChecklistScreen(viewModel: ChecklistViewModel, onOpenCalendar: () -> Unit, m
         }
         if (state.tasks.isNotEmpty()) {
             TaskTable(state.tasks, state.homies, state.importCount, viewModel, strings)
+            WorkloadSummaryCard(WorkloadSummary.of(state.tasks, state.homies), strings)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = viewModel::assignAll) { Text(strings(StringKey.ASSIGN_ALL)) }
                 OutlinedButton(onClick = viewModel::refreshDates) { Text(strings(StringKey.REFRESH_DATES)) }
@@ -149,6 +153,33 @@ private fun TaskTable(
             HeaderCell(StringKey.DELETE, DELETE_WIDTH)
         }
         tasks.forEach { task -> key(importCount, task.id) { TaskRow(task, homies, viewModel, strings) } }
+    }
+}
+
+@Composable
+private fun WorkloadSummaryCard(workloads: List<Workload>, strings: Strings) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(text = strings(StringKey.SUMMARY_TITLE), style = MaterialTheme.typography.titleMedium)
+        workloads.forEach { workload ->
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = workload.homie?.name ?: strings(StringKey.UNASSIGNED),
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    Text(strings(StringKey.SUMMARY_YEARLY, "minutes" to strings(StringKey.MINUTES, "minutes" to workload.yearlyMinutes.toString())))
+                    Text(strings(StringKey.SUMMARY_MONTHLY, "minutes" to strings(StringKey.MINUTES, "minutes" to workload.monthlyMinutes.toString())))
+                    Text(strings(StringKey.SUMMARY_TASKS, "count" to workload.taskCount.toString()))
+                    Text(
+                        if (workload.rooms.isEmpty()) {
+                            strings(StringKey.SUMMARY_NO_ROOMS)
+                        } else {
+                            strings(StringKey.SUMMARY_ROOMS, "rooms" to workload.rooms.joinToString())
+                        },
+                    )
+                }
+            }
+        }
     }
 }
 
