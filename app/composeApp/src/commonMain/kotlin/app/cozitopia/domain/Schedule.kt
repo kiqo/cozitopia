@@ -6,18 +6,31 @@ import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.isoDayNumber
 import kotlinx.datetime.minus
+import kotlinx.datetime.number
 import kotlinx.datetime.plus
 
+data class Proposal(val recurrence: Recurrence, val recognized: Boolean)
+
 object Schedule {
-    private val FREQUENCY = Regex("""(\d+)\s*x\s*(?:pro|per|par|/)?\s*(\p{L}+)\s*(?:\((.+)\))?""", RegexOption.IGNORE_CASE)
-    private val DAYS_PER_MONTH = 30
-    private val DAYS_PER_WEEK = 7
+    private val FREQUENCY =
+        Regex("""(\d+)\s*x\s*(?:pro|per|par|/)?\s*(\p{L}+)\s*(?:\((.+)\))?""", RegexOption.IGNORE_CASE)
+    private val SPECIFIC_DATE = Regex("""(\d{1,2})\.(\d{1,2})\.?""")
+    private const val DAYS_PER_YEAR = 365
+    private const val DAYS_PER_MONTH = 30
+    private const val DAYS_PER_WEEK = 7
+    private const val WEEKS_PER_MONTH = 4
+    private const val WEEKS_PER_YEAR = 52
+    private const val MONTHS_PER_YEAR = 12
+    private const val MAX_MONTH_SEARCH = 37
+    private val DEFAULT_WEEKDAY = DayOfWeek.SATURDAY
 
     private val UNIT_WORDS = mapOf(
-        RecurrenceUnit.DAY to listOf("tag", "day", "jour"),
-        RecurrenceUnit.WEEK to listOf("woche", "week", "semaine"),
-        RecurrenceUnit.MONTH to listOf("monat", "month", "mois"),
-        RecurrenceUnit.YEAR to listOf("jahr", "year", "an"),
+        RecurrenceUnit.DAY to setOf("tag", "tage", "tagen", "day", "days", "jour", "jours"),
+        RecurrenceUnit.WEEK to setOf("woche", "wochen", "week", "weeks", "semaine", "semaines"),
+        RecurrenceUnit.MONTH to setOf("monat", "monate", "monaten", "month", "months", "mois"),
+        RecurrenceUnit.YEAR to setOf(
+            "jahr", "jahre", "jahren", "year", "years", "an", "ans", "année", "années", "annee", "annees",
+        ),
     )
 
     private val SEASON_MONTHS = mapOf(
@@ -42,50 +55,85 @@ object Schedule {
         12 to listOf("dezember", "december", "décembre"),
     )
 
-    fun propose(frequencyText: String): Recurrence {
-        val match = FREQUENCY.find(frequencyText.trim())
-            ?: return Recurrence(RecurrenceUnit.YEAR, weekday = DayOfWeek.SATURDAY, ordinal = Ordinal.FIRST, month = 1)
-        val count = match.groupValues[1].toInt().coerceAtLeast(1)
+    private val FALLBACK = Recurrence(
+        RecurrenceUnit.YEAR,
+        weekday = DEFAULT_WEEKDAY,
+        ordinal = Ordinal.FIRST,
+        month = 1,
+    )
+
+    fun propose(frequencyText: String): Proposal {
+        val text = frequencyText.trim()
+        specificDate(text)?.let { return Proposal(it, true) }
+        val match = FREQUENCY.find(text) ?: return Proposal(FALLBACK, false)
         val word = match.groupValues[2].lowercase()
-        val hint = match.groupValues[3].lowercase()
-        val unit = UNIT_WORDS.entries.firstOrNull { (_, words) -> words.any { word.startsWith(it) } }?.key
-            ?: RecurrenceUnit.YEAR
-        val saturday = DayOfWeek.SATURDAY
-        return when (unit) {
-            RecurrenceUnit.DAY -> Recurrence(RecurrenceUnit.DAY, 1)
-            RecurrenceUnit.WEEK ->
-                Recurrence(RecurrenceUnit.DAY, (DAYS_PER_WEEK.toDouble() / count).roundToInt().coerceAtLeast(1))
-            RecurrenceUnit.MONTH -> if (count == 1) {
-                Recurrence(RecurrenceUnit.MONTH, 1, saturday, Ordinal.FIRST)
-            } else {
-                Recurrence(RecurrenceUnit.DAY, (DAYS_PER_MONTH.toDouble() / count).roundToInt().coerceAtLeast(1))
-            }
-            RecurrenceUnit.YEAR -> {
-                val interval = if (12 % count == 0) 12 / count else 12
-                Recurrence(
-                    RecurrenceUnit.MONTH,
-                    interval,
-                    saturday,
-                    Ordinal.FIRST,
-                    month = monthHint(hint) ?: 1,
-                ).let { if (interval == 12) it.copy(unit = RecurrenceUnit.YEAR) else it }
-            }
+        val unit = UNIT_WORDS.entries.firstOrNull { word in it.value }?.key
+            ?: return Proposal(FALLBACK, false)
+        val count = match.groupValues[1].toInt().coerceAtLeast(1)
+        val startMonth = monthHint(match.groupValues[3].lowercase())
+        return Proposal(proposeFor(unit, count, startMonth), true)
+    }
+
+    private fun specificDate(text: String): Recurrence? {
+        val match = SPECIFIC_DATE.find(text) ?: return null
+        val day = match.groupValues[1].toInt()
+        val month = match.groupValues[2].toInt()
+        if (day !in 1..31 || month !in 1..MONTHS_PER_YEAR) return null
+        return Recurrence(RecurrenceUnit.YEAR, 1, month = month, dayOfMonth = day)
+    }
+
+    private fun proposeFor(unit: RecurrenceUnit, count: Int, startMonth: Int?): Recurrence = when (unit) {
+        RecurrenceUnit.DAY -> Recurrence(RecurrenceUnit.DAY, 1)
+        RecurrenceUnit.WEEK -> if (count == 1) {
+            Recurrence(RecurrenceUnit.WEEK, 1, DEFAULT_WEEKDAY)
+        } else {
+            daily(DAYS_PER_WEEK, count)
+        }
+        RecurrenceUnit.MONTH -> when {
+            count == 1 -> Recurrence(RecurrenceUnit.MONTH, 1, DEFAULT_WEEKDAY, Ordinal.FIRST)
+            WEEKS_PER_MONTH % count == 0 ->
+                Recurrence(RecurrenceUnit.WEEK, WEEKS_PER_MONTH / count, DEFAULT_WEEKDAY)
+            else -> daily(DAYS_PER_MONTH, count)
+        }
+        RecurrenceUnit.YEAR -> when {
+            count == 1 -> Recurrence(
+                RecurrenceUnit.YEAR, 1, DEFAULT_WEEKDAY, Ordinal.FIRST, month = startMonth ?: 1,
+            )
+            MONTHS_PER_YEAR % count == 0 -> Recurrence(
+                RecurrenceUnit.MONTH, MONTHS_PER_YEAR / count, DEFAULT_WEEKDAY, Ordinal.FIRST,
+                month = startMonth ?: 1,
+            )
+            WEEKS_PER_YEAR % count == 0 ->
+                Recurrence(RecurrenceUnit.WEEK, WEEKS_PER_YEAR / count, DEFAULT_WEEKDAY)
+            else -> daily(DAYS_PER_YEAR, count)
         }
     }
 
+    private fun daily(days: Int, count: Int): Recurrence =
+        Recurrence(RecurrenceUnit.DAY, (days.toDouble() / count).roundToInt().coerceAtLeast(1))
+
     fun nextDate(recurrence: Recurrence, from: LocalDate): LocalDate = when (recurrence.unit) {
         RecurrenceUnit.DAY -> from
-        RecurrenceUnit.WEEK -> nextWeekday(from, recurrence.weekday ?: DayOfWeek.SATURDAY)
-        RecurrenceUnit.MONTH -> nextInMonths(from, recurrence, recurrence.month)
-        RecurrenceUnit.YEAR -> nextInMonths(from, recurrence, recurrence.month ?: from.monthNumber)
+        RecurrenceUnit.WEEK -> nextWeekday(from, recurrence.weekday ?: DEFAULT_WEEKDAY)
+        RecurrenceUnit.MONTH -> recurrence.month
+            ?.let { anchoredSeries(recurrence, it, from) }
+            ?: nextInMonths(from, recurrence) { true }
+        RecurrenceUnit.YEAR -> nextInMonths(from, recurrence) { month ->
+            month == (recurrence.month ?: from.month.number)
+        }
     }
+
+    fun occurrences(recurrence: Recurrence, from: LocalDate, until: LocalDate): List<LocalDate> =
+        generateSequence(nextDate(recurrence, from)) { advance(recurrence, it) }
+            .takeWhile { it <= until }
+            .toList()
 
     fun rrule(recurrence: Recurrence): String {
         val interval = recurrence.interval
         return when (recurrence.unit) {
             RecurrenceUnit.DAY -> "FREQ=DAILY;INTERVAL=$interval"
             RecurrenceUnit.WEEK ->
-                "FREQ=WEEKLY;INTERVAL=$interval;BYDAY=${(recurrence.weekday ?: DayOfWeek.SATURDAY).ical()}"
+                "FREQ=WEEKLY;INTERVAL=$interval;BYDAY=${(recurrence.weekday ?: DEFAULT_WEEKDAY).ical()}"
             RecurrenceUnit.MONTH -> "FREQ=MONTHLY;INTERVAL=$interval;${monthlyRule(recurrence)}"
             RecurrenceUnit.YEAR ->
                 "FREQ=YEARLY;INTERVAL=$interval;BYMONTH=${recurrence.month ?: 1};${monthlyRule(recurrence)}"
@@ -94,9 +142,9 @@ object Schedule {
 
     fun occurrencesPerYear(recurrence: Recurrence): Double {
         val periodsPerYear = when (recurrence.unit) {
-            RecurrenceUnit.DAY -> 365.0
-            RecurrenceUnit.WEEK -> 52.0
-            RecurrenceUnit.MONTH -> 12.0
+            RecurrenceUnit.DAY -> DAYS_PER_YEAR.toDouble()
+            RecurrenceUnit.WEEK -> WEEKS_PER_YEAR.toDouble()
+            RecurrenceUnit.MONTH -> MONTHS_PER_YEAR.toDouble()
             RecurrenceUnit.YEAR -> 1.0
         }
         return periodsPerYear / recurrence.interval
@@ -116,21 +164,40 @@ object Schedule {
         }
     }
 
+    private fun anchoredSeries(recurrence: Recurrence, anchorMonth: Int, from: LocalDate): LocalDate =
+        generateSequence(dateInMonth(from.year - 1, anchorMonth, recurrence)) { advance(recurrence, it) }
+            .first { it >= from }
+
+    private fun advance(recurrence: Recurrence, previous: LocalDate): LocalDate {
+        val interval = recurrence.interval.coerceAtLeast(1)
+        val firstOfMonth = LocalDate(previous.year, previous.month.number, 1)
+        return when (recurrence.unit) {
+            RecurrenceUnit.DAY -> previous.plus(interval, DateTimeUnit.DAY)
+            RecurrenceUnit.WEEK -> previous.plus(interval, DateTimeUnit.WEEK)
+            RecurrenceUnit.MONTH -> firstOfMonth.plus(interval, DateTimeUnit.MONTH).let {
+                dateInMonth(it.year, it.month.number, recurrence)
+            }
+            RecurrenceUnit.YEAR -> firstOfMonth.plus(interval, DateTimeUnit.YEAR).let {
+                dateInMonth(it.year, it.month.number, recurrence)
+            }
+        }
+    }
+
     private fun nextInMonths(
         from: LocalDate,
         recurrence: Recurrence,
-        month: Int?,
+        isCandidateMonth: (Int) -> Boolean,
     ): LocalDate {
         var year = from.year
-        var monthNumber = from.monthNumber
+        var month = from.month.number
         repeat(MAX_MONTH_SEARCH) {
-            if (month == null || monthNumber == month) {
-                val candidate = dateInMonth(year, monthNumber, recurrence)
+            if (isCandidateMonth(month)) {
+                val candidate = dateInMonth(year, month, recurrence)
                 if (candidate >= from) return candidate
             }
-            monthNumber += 1
-            if (monthNumber > 12) {
-                monthNumber = 1
+            month += 1
+            if (month > MONTHS_PER_YEAR) {
+                month = 1
                 year += 1
             }
         }
@@ -139,7 +206,7 @@ object Schedule {
 
     private fun dateInMonth(year: Int, month: Int, recurrence: Recurrence): LocalDate {
         val first = LocalDate(year, month, 1)
-        val lengthOfMonth = first.plus(1, DateTimeUnit.MONTH).minus(1, DateTimeUnit.DAY).dayOfMonth
+        val lengthOfMonth = first.plus(1, DateTimeUnit.MONTH).minus(1, DateTimeUnit.DAY).day
         val weekday = recurrence.weekday
         val ordinal = recurrence.ordinal
         if (weekday == null || ordinal == null) {
@@ -157,6 +224,4 @@ object Schedule {
         from.plus((weekday.isoDayNumber - from.dayOfWeek.isoDayNumber + 7) % 7, DateTimeUnit.DAY)
 
     private fun DayOfWeek.ical(): String = name.take(2)
-
-    private const val MAX_MONTH_SEARCH = 37
 }

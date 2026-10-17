@@ -1,59 +1,103 @@
 package app.cozitopia.domain
 
+import kotlin.math.roundToInt
+
 data class CsvRow(
     val what: String,
     val where: String,
     val frequencyText: String,
     val durationMinutes: Int,
+    val durationValid: Boolean,
     val assigneeNames: List<String>,
 )
+
+data class CsvImport(val rows: List<CsvRow>, val skippedLines: List<Int>)
+
+data class AssigneeResolution(val assignee: Assignee, val unknownNames: List<String>)
 
 object ChecklistCsv {
     const val TEMPLATE = "What,Where,Frequency,Duration,Assignee\n" +
         "Steckdosen reinigen,Alle Räume,1x Jahr,3h,\n" +
-        "Terrasse reinigen,Garten,1x Jahr (Herbst),2h,Everyone\n"
+        "Terrasse reinigen,Garten,1x Jahr (Herbst),2h,Unassigned\n" +
+        "Fenster putzen,Wohnzimmer,2x Monat,90min,Alice;Bob\n"
 
-    private val EVERYONE = setOf("everyone", "alle", "tous", "tout le monde")
-    private val UNASSIGNED = setOf("unassigned", "nicht zugewiesen", "non assigné", "")
+    val EVERYONE_WORDS = setOf("everyone", "alle", "tous", "tout le monde")
+    val UNASSIGNED_WORDS = setOf("unassigned", "nicht zugewiesen", "non assigné")
+
+    private val HEADER_FREQUENCY_WORDS =
+        setOf("frequency", "how often", "häufigkeit", "wie oft", "fréquence")
+    private val HEADER_WHAT_WORDS = setOf("what", "was", "quoi", "tâche")
     private val DURATION = Regex("""^(\d+(?:[.,]\d+)?)\s*(h|std|min|m)?$""", RegexOption.IGNORE_CASE)
+    private val MINUTE_UNITS = setOf("min", "m")
+    private const val MIN_FIELDS = 4
+    private const val ASSIGNEE_INDEX = 4
 
-    fun parse(text: String): List<CsvRow> {
-        val lines = text.removePrefix("﻿").lines().filter { it.isNotBlank() }
-        if (lines.isEmpty()) return emptyList()
-        val delimiter = detectDelimiter(lines.first())
-        val records = lines.map { splitLine(it, delimiter) }
-        val body = if (isHeader(records.first())) records.drop(1) else records
-        return body.mapNotNull(::toRow)
+    fun parse(text: String): CsvImport {
+        val numbered = text.removePrefix("﻿").lines()
+            .withIndex()
+            .filter { it.value.isNotBlank() }
+        if (numbered.isEmpty()) return CsvImport(emptyList(), emptyList())
+        val delimiter = detectDelimiter(numbered.first().value)
+        val records = numbered.map { (index, line) -> index + 1 to splitLine(line, delimiter) }
+        val body = if (isHeader(records.first().second)) records.drop(1) else records
+        val rows = mutableListOf<CsvRow>()
+        val skipped = mutableListOf<Int>()
+        body.forEach { (lineNumber, fields) ->
+            toRow(fields, delimiter)?.let(rows::add) ?: skipped.add(lineNumber)
+        }
+        return CsvImport(rows, skipped)
     }
 
-    fun resolveAssignee(names: List<String>, homies: List<Homie>): Assignee {
-        val normalized = names.map { it.trim().lowercase() }.filter { it.isNotEmpty() }
-        if (normalized.isEmpty() || normalized.all { it in UNASSIGNED }) return Assignee.Unassigned
-        if (normalized.any { it in EVERYONE }) return Assignee.Everyone
-        val ids = homies.filter { it.name.trim().lowercase() in normalized }.map { it.userId }.toSet()
-        return if (ids.isEmpty()) Assignee.Unassigned else Assignee(AssigneeKind.PEOPLE, ids)
+    fun resolveAssignee(names: List<String>, homies: List<Homie>): AssigneeResolution {
+        val trimmed = names.map { it.trim() }.filter { it.isNotEmpty() }
+        val normalized = trimmed.map { it.lowercase() }
+        if (normalized.all { it in UNASSIGNED_WORDS }) {
+            return AssigneeResolution(Assignee.Unassigned, emptyList())
+        }
+        val byName = homies.groupBy { it.name.trim().lowercase() }
+        val unknown = trimmed.filter {
+            val key = it.lowercase()
+            key !in UNASSIGNED_WORDS && key !in EVERYONE_WORDS && key !in byName
+        }.distinct()
+        if (normalized.any { it in EVERYONE_WORDS }) {
+            return AssigneeResolution(Assignee.Everyone, unknown)
+        }
+        val ids = normalized.flatMap { byName[it].orEmpty() }.map { it.userId }.toSet()
+        val assignee = if (ids.isEmpty()) Assignee.Unassigned else Assignee(AssigneeKind.PEOPLE, ids)
+        return AssigneeResolution(assignee, unknown)
     }
 
-    fun parseDurationMinutes(text: String): Int {
-        val match = DURATION.matchEntire(text.trim()) ?: return 0
+    fun parseDurationMinutes(text: String): Int = parseDuration(text) ?: 0
+
+    fun parseDuration(text: String): Int? {
+        if (text.isBlank()) return 0
+        val match = DURATION.matchEntire(text.trim()) ?: return null
         val value = match.groupValues[1].replace(',', '.').toDouble()
-        val isMinutes = match.groupValues[2].lowercase() in setOf("min", "m")
-        return (if (isMinutes) value else value * 60).toInt()
+        val isMinutes = match.groupValues[2].lowercase() in MINUTE_UNITS
+        return (if (isMinutes) value else value * 60).roundToInt()
     }
 
-    private fun toRow(fields: List<String>): CsvRow? {
-        if (fields.size < 4 || fields[0].isBlank()) return null
+    private fun toRow(fields: List<String>, delimiter: Char): CsvRow? {
+        if (fields.size < MIN_FIELDS || fields[0].isBlank()) return null
+        val duration = parseDuration(fields[3])
+        val assigneeNames = if (delimiter == ';') {
+            fields.drop(ASSIGNEE_INDEX)
+        } else {
+            fields.getOrElse(ASSIGNEE_INDEX) { "" }.split(';')
+        }
         return CsvRow(
             what = fields[0],
             where = fields[1],
             frequencyText = fields[2],
-            durationMinutes = parseDurationMinutes(fields[3]),
-            assigneeNames = fields.getOrElse(4) { "" }.split(';', '&').map { it.trim() },
+            durationMinutes = duration ?: 0,
+            durationValid = duration != null,
+            assigneeNames = assigneeNames.map { it.trim() }.filter { it.isNotEmpty() },
         )
     }
 
     private fun isHeader(fields: List<String>): Boolean =
-        fields.getOrNull(2)?.lowercase() in setOf("frequency", "how often", "häufigkeit", "fréquence")
+        fields.getOrNull(2)?.trim()?.lowercase() in HEADER_FREQUENCY_WORDS ||
+            fields.getOrNull(0)?.trim()?.lowercase() in HEADER_WHAT_WORDS
 
     private fun detectDelimiter(line: String): Char =
         listOf(',', ';', '\t').maxBy { delimiter -> line.count { it == delimiter } }

@@ -14,4 +14,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "cozitopia"
-include(":composeApp")
+include(":composeApp", ":androidApp")
