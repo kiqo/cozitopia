@@ -48,7 +48,7 @@ val stringsDe: Map<StringKey, String> = mapOf(
     StringKey.PROFILE_TITLE to "Profil",
     StringKey.PROFILE_SAVED to "Profil gespeichert.",
     StringKey.CHECKLIST_TITLE to "Happy Home Checkliste",
-    StringKey.CHECKLIST_HELP to "CSV mit der Kopfzeile Was, Wo, Häufigkeit, Dauer, Zuständig (die Kopfzeile ist optional). Trennzeichen: Komma, Semikolon oder Tabulator; Felder in \" oder ' setzen. Mehrere Zuständige werden mit ; getrennt. Alle / Everyone / Tous steht für alle, Nicht zugewiesen / Unassigned / Non assigné für niemanden; andere Namen müssen dem Anzeigenamen eines Homies entsprechen. Häufigkeit zum Beispiel: 1x Jahr, 2x Monat, 1x Jahr (Herbst), 3x Woche, 15.06. Dauer zum Beispiel: 3h, 90min, 1,5h.",
+    StringKey.CHECKLIST_HELP to "CSV mit der Kopfzeile Was, Wo, Häufigkeit, Dauer, Zuständig (die Kopfzeile ist optional). Trennzeichen: Komma, Semikolon oder Tabulator; Felder in \" oder ' setzen. Mehrere Zuständige werden mit ; getrennt. Alle / Everyone / Tous steht für alle, Nicht zugewiesen / Unassigned / Non assigné für niemanden; andere Namen müssen dem Anzeigenamen eines Homies entsprechen. Häufigkeit zum Beispiel: 1x Jahr, 2x Monat, 1x Jahr (Herbst), 3x Woche, 15.06. Dauer zum Beispiel: 3h, 90min, 1.5h.",
     StringKey.DOWNLOAD_TEMPLATE to "Vorlage herunterladen",
     StringKey.UPLOAD_CSV to "CSV hochladen",
     StringKey.SKIPPED_LINES to "Übersprungene Zeilen: {lines}",
@@ -105,5 +105,7 @@ val stringsDe: Map<StringKey, String> = mapOf(
     StringKey.ERROR_INVITATION_NOT_FOUND to "Die Einladung existiert nicht mehr.",
     StringKey.ERROR_NOT_MEMBER to "Du bist kein Mitglied dieses Zuhauses.",
     StringKey.ERROR_LAST_ADMIN to "Ein Zuhause braucht mindestens einen Admin.",
+    StringKey.ERROR_INVALID_ROLE to "Die Rolle muss Admin oder Homie sein.",
+    StringKey.ERROR_INVALID_EMAIL to "Bitte eine gültige E-Mail-Adresse eingeben.",
     StringKey.ERROR_NETWORK to "Netzwerkfehler. Bitte prüfe deine Verbindung.",
 )

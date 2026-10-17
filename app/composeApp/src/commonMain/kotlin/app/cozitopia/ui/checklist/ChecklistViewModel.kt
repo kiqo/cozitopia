@@ -22,6 +22,7 @@ data class ChecklistState(
     val tasks: List<ChoreTask> = emptyList(),
     val skippedLines: List<Int> = emptyList(),
     val finished: Boolean = false,
+    val importCount: Int = 0,
 )
 
 class ChecklistViewModel(
@@ -33,11 +34,9 @@ class ChecklistViewModel(
     private val mutableState = MutableStateFlow(ChecklistState())
     val state: StateFlow<ChecklistState> = mutableState
 
-    init {
-        launchCatching {
-            val homies = homes.members(homeId).map { it.homie }
-            mutableState.update { it.copy(homies = homies) }
-        }
+    fun refresh() = launchCatching {
+        val homies = homes.members(homeId).map { it.homie }
+        mutableState.update { it.copy(homies = homies) }
     }
 
     fun downloadTemplate() = launchCatching {
@@ -47,7 +46,11 @@ class ChecklistViewModel(
     fun importCsv(readText: suspend () -> String) = launchCatching {
         val parsed = ChecklistCsv.parse(readText())
         mutableState.update {
-            it.copy(tasks = TaskPlanner.plan(parsed.rows, it.homies, today()), skippedLines = parsed.skippedLines)
+            it.copy(
+                tasks = TaskPlanner.plan(parsed.rows, it.homies, today()),
+                skippedLines = parsed.skippedLines,
+                importCount = it.importCount + 1,
+            )
         }
     }
 
@@ -56,13 +59,13 @@ class ChecklistViewModel(
     fun setWhere(taskId: String, where: String) = edit(taskId) { it.copy(where = where) }
 
     fun setDuration(taskId: String, text: String) = edit(taskId) {
-        val minutes = ChecklistCsv.parseDurationMinutes(text)
-        val warnings = if (minutes == 0) {
+        val minutes = ChecklistCsv.parseDuration(text)
+        val warnings = if (minutes == null) {
             it.warnings + TaskWarning.INVALID_DURATION
         } else {
             it.warnings - TaskWarning.INVALID_DURATION
         }
-        it.copy(durationMinutes = minutes, warnings = warnings)
+        it.copy(durationMinutes = minutes ?: 0, warnings = warnings)
     }
 
     fun setAssignee(taskId: String, assignee: Assignee) = edit(taskId) {

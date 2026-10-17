@@ -1,5 +1,7 @@
 package app.cozitopia.domain
 
+import app.cozitopia.i18n.StringKey
+import app.cozitopia.i18n.translations
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -121,5 +123,21 @@ class ChecklistCsvTest {
 
         assertEquals(Assignee.Everyone, resolution.assignee)
         assertEquals(listOf("Carol"), resolution.unknownNames)
+    }
+
+    @Test
+    fun helpTextDurationExamplesParseInCommaFiles() {
+        val helpTexts = translations.values.map { it.getValue(StringKey.CHECKLIST_HELP) }
+
+        for (help in helpTexts) {
+            val durations = help.substringAfterLast(": ").trimEnd('.').split(", ")
+
+            for (duration in durations) {
+                val row = ChecklistCsv.parse("Task,Room,1x Jahr,$duration,Alice").rows.single()
+
+                assertTrue(row.durationValid, duration)
+                assertEquals(listOf("Alice"), row.assigneeNames, duration)
+            }
+        }
     }
 }

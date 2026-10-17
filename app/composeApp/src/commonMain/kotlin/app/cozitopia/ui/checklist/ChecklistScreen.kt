@@ -26,6 +26,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -68,6 +69,7 @@ private fun warningKey(warning: TaskWarning): StringKey = when (warning) {
 fun ChecklistScreen(viewModel: ChecklistViewModel, onOpenCalendar: () -> Unit, modifier: Modifier = Modifier) {
     val strings = LocalStrings.current
     val state by viewModel.state.collectAsState()
+    LaunchedEffect(viewModel) { viewModel.refresh() }
     val picker = rememberFilePickerLauncher(type = FileKitType.File("csv")) { file ->
         file?.let { picked -> viewModel.importCsv { picked.readString() } }
     }
@@ -89,7 +91,7 @@ fun ChecklistScreen(viewModel: ChecklistViewModel, onOpenCalendar: () -> Unit, m
             )
         }
         if (state.tasks.isNotEmpty()) {
-            TaskTable(state.tasks, state.homies, viewModel, strings)
+            TaskTable(state.tasks, state.homies, state.importCount, viewModel, strings)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = viewModel::assignAll) { Text(strings(StringKey.ASSIGN_ALL)) }
                 OutlinedButton(onClick = viewModel::refreshDates) { Text(strings(StringKey.REFRESH_DATES)) }
@@ -118,7 +120,13 @@ fun ChecklistScreen(viewModel: ChecklistViewModel, onOpenCalendar: () -> Unit, m
 }
 
 @Composable
-private fun TaskTable(tasks: List<ChoreTask>, homies: List<Homie>, viewModel: ChecklistViewModel, strings: Strings) {
+private fun TaskTable(
+    tasks: List<ChoreTask>,
+    homies: List<Homie>,
+    importCount: Int,
+    viewModel: ChecklistViewModel,
+    strings: Strings,
+) {
     Column(Modifier.horizontalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             HeaderCell(StringKey.COL_WHAT, WHAT_WIDTH)
@@ -130,7 +138,7 @@ private fun TaskTable(tasks: List<ChoreTask>, homies: List<Homie>, viewModel: Ch
             HeaderCell(StringKey.COL_NEXT_DATE, DATE_WIDTH)
             HeaderCell(StringKey.DELETE, DELETE_WIDTH)
         }
-        tasks.forEach { task -> key(task.id) { TaskRow(task, homies, viewModel, strings) } }
+        tasks.forEach { task -> key(importCount, task.id) { TaskRow(task, homies, viewModel, strings) } }
     }
 }
 

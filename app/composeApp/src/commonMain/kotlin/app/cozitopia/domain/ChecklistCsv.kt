@@ -69,7 +69,7 @@ object ChecklistCsv {
 
     fun parseDurationMinutes(text: String): Int = parseDuration(text) ?: 0
 
-    private fun parseDuration(text: String): Int? {
+    fun parseDuration(text: String): Int? {
         if (text.isBlank()) return 0
         val match = DURATION.matchEntire(text.trim()) ?: return null
         val value = match.groupValues[1].replace(',', '.').toDouble()

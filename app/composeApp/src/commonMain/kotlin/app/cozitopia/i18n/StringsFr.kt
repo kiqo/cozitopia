@@ -48,7 +48,7 @@ val stringsFr: Map<StringKey, String> = mapOf(
     StringKey.PROFILE_TITLE to "Profil",
     StringKey.PROFILE_SAVED to "Profil enregistré.",
     StringKey.CHECKLIST_TITLE to "Happy Home Checklist",
-    StringKey.CHECKLIST_HELP to "CSV avec l'en-tête Quoi, Où, Fréquence, Durée, Responsable (l'en-tête est facultatif). Séparateurs : virgule, point-virgule ou tabulation ; entourez les champs de \" ou '. Plusieurs responsables sont séparés par ;. Tous / Everyone / Alle désigne tout le monde, Non assigné / Unassigned / Nicht zugewiesen désigne personne ; les autres noms doivent correspondre au nom affiché d'un homie. Exemples de fréquence : 1x an, 2x mois, 1x an (automne), 3x semaine, 15.06. Exemples de durée : 3h, 90min, 1,5h.",
+    StringKey.CHECKLIST_HELP to "CSV avec l'en-tête Quoi, Où, Fréquence, Durée, Responsable (l'en-tête est facultatif). Séparateurs : virgule, point-virgule ou tabulation ; entourez les champs de \" ou '. Plusieurs responsables sont séparés par ;. Tous / Everyone / Alle désigne tout le monde, Non assigné / Unassigned / Nicht zugewiesen désigne personne ; les autres noms doivent correspondre au nom affiché d'un homie. Exemples de fréquence : 1x an, 2x mois, 1x an (automne), 3x semaine, 15.06. Exemples de durée : 3h, 90min, 1.5h.",
     StringKey.DOWNLOAD_TEMPLATE to "Télécharger le modèle",
     StringKey.UPLOAD_CSV to "Importer un CSV",
     StringKey.SKIPPED_LINES to "Lignes ignorées : {lines}",
@@ -105,5 +105,7 @@ val stringsFr: Map<StringKey, String> = mapOf(
     StringKey.ERROR_INVITATION_NOT_FOUND to "L'invitation n'existe plus.",
     StringKey.ERROR_NOT_MEMBER to "Vous n'êtes pas membre de ce foyer.",
     StringKey.ERROR_LAST_ADMIN to "Un foyer a besoin d'au moins un admin.",
+    StringKey.ERROR_INVALID_ROLE to "Le rôle doit être Admin ou Homie.",
+    StringKey.ERROR_INVALID_EMAIL to "Saisissez une adresse e-mail valide.",
     StringKey.ERROR_NETWORK to "Erreur réseau. Vérifiez votre connexion.",
 )

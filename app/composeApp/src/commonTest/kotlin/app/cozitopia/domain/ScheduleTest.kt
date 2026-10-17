@@ -4,8 +4,11 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.number
+import kotlinx.datetime.plus
 
 class ScheduleTest {
     private val today = LocalDate(2026, 10, 17)
@@ -117,5 +120,16 @@ class ScheduleTest {
         )
 
         cases.forEach { (recurrence, expected) -> assertEquals(expected, Schedule.rrule(recurrence)) }
+    }
+
+    @Test
+    fun nextDateFollowsTheSameSeriesAsAdvance() {
+        val recurrence = Recurrence(RecurrenceUnit.MONTH, 5, saturday, Ordinal.FIRST, month = 1)
+
+        val dates = Schedule.occurrences(recurrence, LocalDate(2027, 1, 1), LocalDate(2027, 12, 31))
+
+        assertEquals(listOf(4, 9), dates.map { it.month.number })
+        assertEquals(4, Schedule.nextDate(recurrence, LocalDate(2027, 3, 1)).month.number)
+        assertEquals(dates.drop(1), Schedule.occurrences(recurrence, dates.first().plus(1, DateTimeUnit.DAY), LocalDate(2027, 12, 31)))
     }
 }

@@ -48,7 +48,7 @@ val stringsEn: Map<StringKey, String> = mapOf(
     StringKey.PROFILE_TITLE to "Profile",
     StringKey.PROFILE_SAVED to "Profile saved.",
     StringKey.CHECKLIST_TITLE to "Happy Home Checklist",
-    StringKey.CHECKLIST_HELP to "CSV with the header What, Where, Frequency, Duration, Assignee (a header is optional). Delimiters: comma, semicolon or tab; quote fields with \" or '. Several assignees are separated by ;. Use Everyone / Alle / Tous for everybody and Unassigned / Nicht zugewiesen / Non assigné for nobody; other names must match a homie's display name. Frequency examples: 1x Jahr, 2x Monat, 1x Jahr (Herbst), 3x week, 15.06. Duration examples: 3h, 90min, 1,5h.",
+    StringKey.CHECKLIST_HELP to "CSV with the header What, Where, Frequency, Duration, Assignee (a header is optional). Delimiters: comma, semicolon or tab; quote fields with \" or '. Several assignees are separated by ;. Use Everyone / Alle / Tous for everybody and Unassigned / Nicht zugewiesen / Non assigné for nobody; other names must match a homie's display name. Frequency examples: 1x Jahr, 2x Monat, 1x Jahr (Herbst), 3x week, 15.06. Duration examples: 3h, 90min, 1.5h.",
     StringKey.DOWNLOAD_TEMPLATE to "Download template",
     StringKey.UPLOAD_CSV to "Upload CSV",
     StringKey.SKIPPED_LINES to "Skipped lines: {lines}",
@@ -105,5 +105,7 @@ val stringsEn: Map<StringKey, String> = mapOf(
     StringKey.ERROR_INVITATION_NOT_FOUND to "The invitation no longer exists.",
     StringKey.ERROR_NOT_MEMBER to "You are not a member of this home.",
     StringKey.ERROR_LAST_ADMIN to "A home needs at least one admin.",
+    StringKey.ERROR_INVALID_ROLE to "The role must be Admin or Homie.",
+    StringKey.ERROR_INVALID_EMAIL to "Enter a valid email address.",
     StringKey.ERROR_NETWORK to "Network error. Please check your connection.",
 )

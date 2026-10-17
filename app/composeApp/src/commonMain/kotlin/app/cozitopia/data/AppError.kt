@@ -16,6 +16,8 @@ sealed interface AppError {
             "INVITATION_NOT_FOUND" to StringKey.ERROR_INVITATION_NOT_FOUND,
             "NOT_MEMBER" to StringKey.ERROR_NOT_MEMBER,
             "LAST_ADMIN" to StringKey.ERROR_LAST_ADMIN,
+            "INVALID_ROLE" to StringKey.ERROR_INVALID_ROLE,
+            "INVALID_EMAIL" to StringKey.ERROR_INVALID_EMAIL,
         )
 
         fun from(throwable: Throwable): AppError {

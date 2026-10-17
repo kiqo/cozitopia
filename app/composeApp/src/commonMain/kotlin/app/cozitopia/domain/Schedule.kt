@@ -115,10 +115,9 @@ object Schedule {
     fun nextDate(recurrence: Recurrence, from: LocalDate): LocalDate = when (recurrence.unit) {
         RecurrenceUnit.DAY -> from
         RecurrenceUnit.WEEK -> nextWeekday(from, recurrence.weekday ?: DEFAULT_WEEKDAY)
-        RecurrenceUnit.MONTH -> nextInMonths(from, recurrence) { month ->
-            val offset = (month - (recurrence.month ?: month) + MONTHS_PER_YEAR) % MONTHS_PER_YEAR
-            offset % recurrence.interval.coerceAtLeast(1) == 0
-        }
+        RecurrenceUnit.MONTH -> recurrence.month
+            ?.let { anchoredSeries(recurrence, it, from) }
+            ?: nextInMonths(from, recurrence) { true }
         RecurrenceUnit.YEAR -> nextInMonths(from, recurrence) { month ->
             month == (recurrence.month ?: from.month.number)
         }
@@ -164,6 +163,10 @@ object Schedule {
             "BYMONTHDAY=${recurrence.dayOfMonth ?: 1}"
         }
     }
+
+    private fun anchoredSeries(recurrence: Recurrence, anchorMonth: Int, from: LocalDate): LocalDate =
+        generateSequence(dateInMonth(from.year - 1, anchorMonth, recurrence)) { advance(recurrence, it) }
+            .first { it >= from }
 
     private fun advance(recurrence: Recurrence, previous: LocalDate): LocalDate {
         val interval = recurrence.interval.coerceAtLeast(1)
