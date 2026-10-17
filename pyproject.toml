@@ -1,0 +1,80 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "TODO-my-package"
+dependencies = [
+  "loguru~=0.7",
+]
+requires-python = ">=3.12"
+authors = [
+  {name = "Hatchi Kiqo", email = "hatchikiqo@gmail.com"},
+]
+maintainers = [
+  {name = "Hatchi Kiqo", email = "hatchikiqo@gmail.com"},
+]
+description = "TODO Some great example project"
+readme = {file = "README.md", content-type = "text/markdown"}
+license = {text = "MIT License"}
+keywords = ["TODO", "python"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python"
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+]
+
+[project.urls]
+# TODO: Update the following section
+# Homepage = "https://example.com"
+# Documentation = "https://readthedocs.org"
+# Repository = "https://github.com/me/spam.git"
+# "Bug Tracker" = "https://github.com/me/spam/issues"
+# Changelog = "https://github.com/me/spam/blob/master/CHANGELOG.md"
+
+[project.scripts]
+main-cli = "TODO-my-package.main:main"
+
+[project.gui-scripts]
+main-gui = "TODO-my-package.main:main"
+
+[tool.hatch.env]
+requires = [
+    "hatch-pip-compile"
+]
+
+[tool.hatch.envs.static]
+dev-mode = true
+
+[tool.hatch.version]
+path = "src/TODO-my-package/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/TODO-my-package"]
+
+[tool.hatch.build.targets.sdist]
+packages = ["src/TODO-my-package"]
+
+[tool.hatch.envs.default]
+# Enable uv for creating the virtual environments
+installer = "uv"
+# Enable pip-compile to resolve the lockfile but due to hatch-pip-compile resolve via uv
+# See: https://github.com/juftin/hatch-pip-compile/blob/main/docs/examples.md#pip-compile-resolver
+type = "pip-compile"
+pip-compile-resolver = "uv"
+# Generate hashes in the lockfile
+pip-compile-hashes = true
+pip-compile-verbose = true
+
+[tool.hatch.envs.test]
+features = [
+  "dev"
+]
+[tool.hatch.envs.test.scripts]
+run-coverage = "pytest --cov-config=pyproject.toml --cov=pkg --cov=tests"
+run = "run-coverage --no-cov"
