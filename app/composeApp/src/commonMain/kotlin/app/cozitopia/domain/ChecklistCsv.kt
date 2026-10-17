@@ -24,9 +24,6 @@ object ChecklistCsv {
     val EVERYONE_WORDS = setOf("everyone", "alle", "tous", "tout le monde")
     val UNASSIGNED_WORDS = setOf("unassigned", "nicht zugewiesen", "non assigné")
 
-    private val HEADER_FREQUENCY_WORDS =
-        setOf("frequency", "how often", "häufigkeit", "wie oft", "fréquence")
-    private val HEADER_WHAT_WORDS = setOf("what", "was", "quoi", "tâche")
     private val DURATION = Regex("""^(\d+(?:[.,]\d+)?)\s*(h|std|min|m)?$""", RegexOption.IGNORE_CASE)
     private val MINUTE_UNITS = setOf("min", "m")
     private const val MIN_FIELDS = 4
@@ -39,7 +36,7 @@ object ChecklistCsv {
         if (numbered.isEmpty()) return CsvImport(emptyList(), emptyList())
         val delimiter = detectDelimiter(numbered.first().value)
         val records = numbered.map { (index, line) -> index + 1 to splitLine(line, delimiter) }
-        val body = if (isHeader(records.first().second)) records.drop(1) else records
+        val body = if (isRealRow(records.first().second, delimiter)) records else records.drop(1)
         val rows = mutableListOf<CsvRow>()
         val skipped = mutableListOf<Int>()
         body.forEach { (lineNumber, fields) ->
@@ -95,9 +92,8 @@ object ChecklistCsv {
         )
     }
 
-    private fun isHeader(fields: List<String>): Boolean =
-        fields.getOrNull(2)?.trim()?.lowercase() in HEADER_FREQUENCY_WORDS ||
-            fields.getOrNull(0)?.trim()?.lowercase() in HEADER_WHAT_WORDS
+    private fun isRealRow(fields: List<String>, delimiter: Char): Boolean =
+        toRow(fields, delimiter)?.let { it.durationValid && Schedule.propose(it.frequencyText) != null } == true
 
     private fun detectDelimiter(line: String): Char =
         listOf(',', ';', '\t').maxBy { delimiter -> line.count { it == delimiter } }
