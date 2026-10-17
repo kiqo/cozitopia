@@ -119,7 +119,7 @@ fun RecurrenceEditorDialog(
                     )
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (draft.mode == RepeatMode.DATE) {
+                    if (draft.mode == RepeatMode.DATE && draft.unit != RecurrenceUnit.DAY) {
                         OutlinedTextField(
                             value = draft.dayOfMonth.toString(),
                             onValueChange = { text ->
