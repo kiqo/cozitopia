@@ -3,6 +3,7 @@ package app.cozitopia.domain
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 
 enum class Role { ADMIN, HOMIE }
 
@@ -11,6 +12,8 @@ enum class RecurrenceUnit { DAY, WEEK, MONTH, YEAR }
 enum class Ordinal { FIRST, SECOND, THIRD, FOURTH, LAST }
 
 enum class AssigneeKind { EVERYONE, UNASSIGNED, PEOPLE }
+
+enum class TaskWarning { UNKNOWN_ASSIGNEE, INVALID_DURATION, UNRECOGNIZED_FREQUENCY }
 
 @Serializable
 data class Homie(val userId: String, val name: String, val role: Role)
@@ -62,4 +65,5 @@ data class ChoreTask(
     val assignee: Assignee,
     val recurrence: Recurrence,
     val nextDate: LocalDate,
+    @Transient val warnings: Set<TaskWarning> = emptySet(),
 )

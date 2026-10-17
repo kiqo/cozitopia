@@ -5,21 +5,31 @@ import kotlinx.datetime.LocalDate
 object TaskPlanner {
     fun plan(rows: List<CsvRow>, homies: List<Homie>, today: LocalDate): List<ChoreTask> =
         rows.mapIndexed { index, row ->
-            val recurrence = Schedule.propose(row.frequencyText)
+            val proposal = Schedule.propose(row.frequencyText)
+            val resolution = ChecklistCsv.resolveAssignee(row.assigneeNames, homies)
             ChoreTask(
                 id = "task-$index",
                 what = row.what,
                 where = row.where,
                 frequencyText = row.frequencyText,
                 durationMinutes = row.durationMinutes,
-                assignee = ChecklistCsv.resolveAssignee(row.assigneeNames, homies),
-                recurrence = recurrence,
-                nextDate = Schedule.nextDate(recurrence, today),
+                assignee = resolution.assignee,
+                recurrence = proposal.recurrence,
+                nextDate = Schedule.nextDate(proposal.recurrence, today),
+                warnings = buildSet {
+                    if (resolution.unknownNames.isNotEmpty()) add(TaskWarning.UNKNOWN_ASSIGNEE)
+                    if (!row.durationValid) add(TaskWarning.INVALID_DURATION)
+                    if (!proposal.recognized) add(TaskWarning.UNRECOGNIZED_FREQUENCY)
+                },
             )
         }
 
     fun withRecurrence(task: ChoreTask, recurrence: Recurrence, today: LocalDate): ChoreTask =
-        task.copy(recurrence = recurrence, nextDate = Schedule.nextDate(recurrence, today))
+        task.copy(
+            recurrence = recurrence,
+            nextDate = Schedule.nextDate(recurrence, today),
+            warnings = task.warnings - TaskWarning.UNRECOGNIZED_FREQUENCY,
+        )
 
     fun refreshDates(tasks: List<ChoreTask>, today: LocalDate): List<ChoreTask> =
         tasks.map { it.copy(nextDate = Schedule.nextDate(it.recurrence, today)) }
@@ -34,7 +44,9 @@ object TaskPlanner {
                 load[target] = load.getValue(target) + yearlyHours(task)
                 task.id to Assignee.of(target)
             }
-        return tasks.map { it.copy(assignee = assigned.getValue(it.id)) }
+        return tasks.map {
+            it.copy(assignee = assigned.getValue(it.id), warnings = it.warnings - TaskWarning.UNKNOWN_ASSIGNEE)
+        }
     }
 
     fun yearlyHours(task: ChoreTask): Double =
