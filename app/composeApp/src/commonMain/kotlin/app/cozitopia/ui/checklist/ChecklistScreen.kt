@@ -40,6 +40,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.cozitopia.domain.ChoreTask
 import app.cozitopia.domain.Homie
+import app.cozitopia.domain.Schedule
+import app.cozitopia.domain.TaskPlanner
 import app.cozitopia.domain.TaskWarning
 import app.cozitopia.i18n.LocalStrings
 import app.cozitopia.i18n.StringKey
@@ -56,13 +58,15 @@ private val DURATION_WIDTH = 110.dp
 private val ASSIGNEE_WIDTH = 190.dp
 private val REPETITION_WIDTH = 230.dp
 private val DATE_WIDTH = 130.dp
+private val TIME_WIDTH = 90.dp
 private val DELETE_WIDTH = 56.dp
-private val WARNING_WIDTH = 190.dp
+private val WARNING_WIDTH = 300.dp
 
 private fun warningKey(warning: TaskWarning): StringKey = when (warning) {
     TaskWarning.UNKNOWN_ASSIGNEE -> StringKey.WARN_UNKNOWN_ASSIGNEE
     TaskWarning.INVALID_DURATION -> StringKey.WARN_INVALID_DURATION
     TaskWarning.UNRECOGNIZED_FREQUENCY -> StringKey.WARN_UNRECOGNIZED_FREQUENCY
+    TaskWarning.EXCEEDS_DAY -> StringKey.WARN_EXCEEDS_DAY
 }
 
 @Composable
@@ -95,7 +99,12 @@ fun ChecklistScreen(viewModel: ChecklistViewModel, onOpenCalendar: () -> Unit, m
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = viewModel::assignAll) { Text(strings(StringKey.ASSIGN_ALL)) }
                 OutlinedButton(onClick = viewModel::refreshDates) { Text(strings(StringKey.REFRESH_DATES)) }
-                Button(onClick = viewModel::finish) { Text(strings(StringKey.FINISH_CHECKLIST)) }
+                Button(onClick = viewModel::finish, enabled = state.canFinish) {
+                    Text(strings(StringKey.FINISH_CHECKLIST))
+                }
+            }
+            if (!state.canFinish) {
+                Text(text = strings(StringKey.FINISH_BLOCKED), color = MaterialTheme.colorScheme.error)
             }
         }
     }
@@ -136,6 +145,7 @@ private fun TaskTable(
             HeaderCell(StringKey.COL_ASSIGNEE, ASSIGNEE_WIDTH)
             HeaderCell(StringKey.COL_REPETITION, REPETITION_WIDTH)
             HeaderCell(StringKey.COL_NEXT_DATE, DATE_WIDTH)
+            HeaderCell(StringKey.COL_START_TIME, TIME_WIDTH)
             HeaderCell(StringKey.DELETE, DELETE_WIDTH)
         }
         tasks.forEach { task -> key(importCount, task.id) { TaskRow(task, homies, viewModel, strings) } }
@@ -155,8 +165,7 @@ private fun HeaderCell(title: StringKey, width: Dp) {
 private fun TaskRow(task: ChoreTask, homies: List<Homie>, viewModel: ChecklistViewModel, strings: Strings) {
     var durationText by remember { mutableStateOf(if (task.durationMinutes == 0) "" else "${task.durationMinutes}min") }
     var editingRecurrence by remember { mutableStateOf(false) }
-    val warningColor = MaterialTheme.colorScheme.errorContainer
-
+    
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(
             value = task.what,
@@ -170,9 +179,12 @@ private fun TaskRow(task: ChoreTask, homies: List<Homie>, viewModel: ChecklistVi
             singleLine = true,
             modifier = Modifier.width(WHERE_WIDTH),
         )
-        Text(
-            text = task.frequencyText,
-            modifier = Modifier.width(FREQUENCY_WIDTH).highlighted(TaskWarning.UNRECOGNIZED_FREQUENCY in task.warnings, warningColor),
+        OutlinedTextField(
+            value = task.frequencyText,
+            onValueChange = { viewModel.setFrequency(task.id, it) },
+            isError = TaskWarning.UNRECOGNIZED_FREQUENCY in task.warnings,
+            singleLine = true,
+            modifier = Modifier.width(FREQUENCY_WIDTH),
         )
         OutlinedTextField(
             value = durationText,
@@ -186,14 +198,18 @@ private fun TaskRow(task: ChoreTask, homies: List<Homie>, viewModel: ChecklistVi
         )
         AssigneeCell(task, homies, viewModel, strings, Modifier.width(ASSIGNEE_WIDTH))
         OutlinedButton(onClick = { editingRecurrence = true }, modifier = Modifier.width(REPETITION_WIDTH)) {
-            Text(describeRecurrence(task.recurrence, strings))
+            Text(task.recurrence?.let { describeRecurrence(it, strings) } ?: strings(StringKey.SET_REPETITION))
         }
-        Text(text = strings.date(task.nextDate), modifier = Modifier.width(DATE_WIDTH))
+        Text(text = task.nextDate?.let(strings::date).orEmpty(), modifier = Modifier.width(DATE_WIDTH))
+        Text(
+            text = task.startTime?.takeIf { task.durationMinutes > 0 }?.toString().orEmpty(),
+            modifier = Modifier.width(TIME_WIDTH),
+        )
         IconButton(onClick = { viewModel.delete(task.id) }, modifier = Modifier.width(DELETE_WIDTH)) {
             Icon(Icons.Filled.Delete, contentDescription = strings(StringKey.DELETE))
         }
         Text(
-            text = task.warnings.joinToString { strings(warningKey(it)) },
+            text = task.warnings.joinToString { strings(warningKey(it), "text" to task.frequencyText) },
             color = MaterialTheme.colorScheme.error,
             modifier = Modifier.width(WARNING_WIDTH),
         )
@@ -201,7 +217,7 @@ private fun TaskRow(task: ChoreTask, homies: List<Homie>, viewModel: ChecklistVi
 
     if (editingRecurrence) {
         RecurrenceEditorDialog(
-            recurrence = task.recurrence,
+            recurrence = task.recurrence ?: Schedule.defaultRecurrence(TaskPlanner.windowFor(task.assignee, homies).weekday),
             onChange = { viewModel.setRecurrence(task.id, it) },
             onDismiss = { editingRecurrence = false },
         )

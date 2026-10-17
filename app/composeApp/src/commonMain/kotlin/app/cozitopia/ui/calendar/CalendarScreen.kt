@@ -74,7 +74,10 @@ fun CalendarScreen(viewModel: CalendarViewModel, myUserId: String, modifier: Mod
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(12.dp)) {
                             Text(
-                                text = "${strings.date(occurrence.date)}  ${occurrence.task.what}",
+                                text = listOfNotNull(
+                                    strings.date(occurrence.date),
+                                    occurrence.task.startTime?.takeIf { occurrence.task.durationMinutes > 0 },
+                                ).joinToString(" ") + "  ${occurrence.task.what}",
                                 style = MaterialTheme.typography.titleMedium,
                             )
                             Text(

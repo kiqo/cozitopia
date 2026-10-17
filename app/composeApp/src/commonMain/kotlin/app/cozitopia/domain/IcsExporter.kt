@@ -1,11 +1,14 @@
 package app.cozitopia.domain
 
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.number
 import kotlinx.datetime.plus
+import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 
 sealed interface ExportScope {
@@ -36,15 +39,24 @@ object IcsExporter {
         line("PRODID:-//Cozitopia//Homies Calendar//EN")
         line("X-WR-CALNAME:${escape(homeName)}")
         tasks.forEach { task ->
+            val start = task.nextDate ?: return@forEach
+            val recurrence = task.recurrence ?: return@forEach
             line("BEGIN:VEVENT")
             line("UID:${task.id}@cozitopia.app")
             line("DTSTAMP:$dtstamp")
-            line("DTSTART;VALUE=DATE:${task.nextDate.basic()}")
-            line("DTEND;VALUE=DATE:${task.nextDate.plus(1, DateTimeUnit.DAY).basic()}")
+            val time = task.startTime?.takeIf { task.durationMinutes > 0 }
+            if (time == null) {
+                line("DTSTART;VALUE=DATE:${start.basic()}")
+                line("DTEND;VALUE=DATE:${start.plus(1, DateTimeUnit.DAY).basic()}")
+            } else {
+                val begin = LocalDateTime(start, time)
+                line("DTSTART:${begin.basic()}")
+                line("DTEND:${begin.plusMinutes(task.durationMinutes).basic()}")
+            }
             line("SUMMARY:${escape(task.what)}")
             line("LOCATION:${escape(task.where)}")
             line("DESCRIPTION:${escape("${task.durationMinutes} min")}")
-            line("RRULE:${Schedule.rrule(task.recurrence)}")
+            line("RRULE:${Schedule.rrule(recurrence)}")
             line("END:VEVENT")
         }
         line("END:VCALENDAR")
@@ -80,6 +92,11 @@ object IcsExporter {
     }
 
     private fun LocalDate.basic(): String = "${year.toString().padStart(4, '0')}${month.number.pad()}${day.pad()}"
+
+    private fun LocalDateTime.basic(): String = "${date.basic()}T${hour.pad()}${minute.pad()}${second.pad()}"
+
+    private fun LocalDateTime.plusMinutes(minutes: Int): LocalDateTime =
+        toInstant(TimeZone.UTC).plus(minutes.minutes).toLocalDateTime(TimeZone.UTC)
 
     private fun Int.pad(): String = toString().padStart(2, '0')
 

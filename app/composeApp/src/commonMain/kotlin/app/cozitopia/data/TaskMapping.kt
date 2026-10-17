@@ -19,8 +19,9 @@ fun ChoreTask.toDto(): TaskDto = TaskDto(
     durationMinutes = durationMinutes,
     assigneeKind = assignee.kind,
     assigneeIds = assignee.userIds.toList(),
-    recurrence = recurrence,
-    nextDate = nextDate,
+    recurrence = requireNotNull(recurrence) { "task $id has no recurrence" },
+    nextDate = requireNotNull(nextDate) { "task $id has no next date" },
+    startTime = requireNotNull(startTime) { "task $id has no start time" },
 )
 
 fun TaskDto.toDomain(): ChoreTask = ChoreTask(
@@ -32,6 +33,7 @@ fun TaskDto.toDomain(): ChoreTask = ChoreTask(
     assignee = Assignee(assigneeKind, assigneeIds.toSet()),
     recurrence = recurrence,
     nextDate = nextDate,
+    startTime = startTime,
 )
 
 fun List<ChoreTask>.toJson(): JsonElement =

@@ -35,11 +35,14 @@ class HomeRepository(private val client: SupabaseClient) {
 
     suspend fun members(homeId: String): List<Member> =
         client.from("home_members")
-            .select(Columns.raw("user_id, role, profiles(display_name, email)")) {
+            .select(Columns.raw("user_id, role, profiles(display_name, email, preferred_weekday, preferred_start_time, latest_end_time)")) {
                 filter { eq("home_id", homeId) }
             }
             .decodeList<MemberDto>()
-            .map { Member(Homie(it.userId, it.profiles.displayName, it.role), it.profiles.email) }
+            .map { Member(
+                    Homie(it.userId, it.profiles.displayName, it.role, it.profiles.window),
+                    it.profiles.email,
+                ) }
             .sortedBy { it.homie.name.lowercase() }
 
     suspend fun changeRole(homeId: String, userId: String, role: Role) {

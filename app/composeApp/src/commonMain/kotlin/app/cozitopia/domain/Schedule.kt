@@ -9,11 +9,13 @@ import kotlinx.datetime.minus
 import kotlinx.datetime.number
 import kotlinx.datetime.plus
 
-data class Proposal(val recurrence: Recurrence, val recognized: Boolean)
-
 object Schedule {
     private val FREQUENCY =
         Regex("""(\d+)\s*x\s*(?:pro|per|par|/)?\s*(\p{L}+)\s*(?:\((.+)\))?""", RegexOption.IGNORE_CASE)
+    private val INTERVAL = Regex(
+        """\b(?:alle|every|tous\s+les|toutes\s+les)\s+(\d+)\s+(\p{L}+)\s*(?:\((.+)\))?""",
+        RegexOption.IGNORE_CASE,
+    )
     private val SPECIFIC_DATE = Regex("""(\d{1,2})\.(\d{1,2})\.?""")
     private const val DAYS_PER_YEAR = 365
     private const val DAYS_PER_MONTH = 30
@@ -22,7 +24,7 @@ object Schedule {
     private const val WEEKS_PER_YEAR = 52
     private const val MONTHS_PER_YEAR = 12
     private const val MAX_MONTH_SEARCH = 37
-    private val DEFAULT_WEEKDAY = DayOfWeek.SATURDAY
+    val DEFAULT_WEEKDAY = DayWindow.DEFAULT.weekday
 
     private val UNIT_WORDS = mapOf(
         RecurrenceUnit.DAY to setOf("tag", "tage", "tagen", "day", "days", "jour", "jours"),
@@ -55,23 +57,11 @@ object Schedule {
         12 to listOf("dezember", "december", "décembre"),
     )
 
-    private val FALLBACK = Recurrence(
-        RecurrenceUnit.YEAR,
-        weekday = DEFAULT_WEEKDAY,
-        ordinal = Ordinal.FIRST,
-        month = 1,
-    )
+    fun defaultRecurrence(weekday: DayOfWeek): Recurrence = every(RecurrenceUnit.YEAR, 1, weekday, null)
 
-    fun propose(frequencyText: String): Proposal {
+    fun propose(frequencyText: String, weekday: DayOfWeek = DEFAULT_WEEKDAY): Recurrence? {
         val text = frequencyText.trim()
-        specificDate(text)?.let { return Proposal(it, true) }
-        val match = FREQUENCY.find(text) ?: return Proposal(FALLBACK, false)
-        val word = match.groupValues[2].lowercase()
-        val unit = UNIT_WORDS.entries.firstOrNull { word in it.value }?.key
-            ?: return Proposal(FALLBACK, false)
-        val count = match.groupValues[1].toInt().coerceAtLeast(1)
-        val startMonth = monthHint(match.groupValues[3].lowercase())
-        return Proposal(proposeFor(unit, count, startMonth), true)
+        return specificDate(text) ?: interval(text, weekday) ?: perUnit(text, weekday)
     }
 
     private fun specificDate(text: String): Recurrence? {
@@ -82,32 +72,50 @@ object Schedule {
         return Recurrence(RecurrenceUnit.YEAR, 1, month = month, dayOfMonth = day)
     }
 
-    private fun proposeFor(unit: RecurrenceUnit, count: Int, startMonth: Int?): Recurrence = when (unit) {
-        RecurrenceUnit.DAY -> Recurrence(RecurrenceUnit.DAY, 1)
-        RecurrenceUnit.WEEK -> if (count == 1) {
-            Recurrence(RecurrenceUnit.WEEK, 1, DEFAULT_WEEKDAY)
-        } else {
-            daily(DAYS_PER_WEEK, count)
-        }
-        RecurrenceUnit.MONTH -> when {
-            count == 1 -> Recurrence(RecurrenceUnit.MONTH, 1, DEFAULT_WEEKDAY, Ordinal.FIRST)
-            WEEKS_PER_MONTH % count == 0 ->
-                Recurrence(RecurrenceUnit.WEEK, WEEKS_PER_MONTH / count, DEFAULT_WEEKDAY)
-            else -> daily(DAYS_PER_MONTH, count)
-        }
-        RecurrenceUnit.YEAR -> when {
-            count == 1 -> Recurrence(
-                RecurrenceUnit.YEAR, 1, DEFAULT_WEEKDAY, Ordinal.FIRST, month = startMonth ?: 1,
-            )
-            MONTHS_PER_YEAR % count == 0 -> Recurrence(
-                RecurrenceUnit.MONTH, MONTHS_PER_YEAR / count, DEFAULT_WEEKDAY, Ordinal.FIRST,
-                month = startMonth ?: 1,
-            )
-            WEEKS_PER_YEAR % count == 0 ->
-                Recurrence(RecurrenceUnit.WEEK, WEEKS_PER_YEAR / count, DEFAULT_WEEKDAY)
-            else -> daily(DAYS_PER_YEAR, count)
-        }
+    private fun interval(text: String, weekday: DayOfWeek): Recurrence? {
+        val match = INTERVAL.find(text) ?: return null
+        val unit = unitOf(match.groupValues[2]) ?: return null
+        val count = match.groupValues[1].toInt().coerceAtLeast(1)
+        return every(unit, count, weekday, monthHint(match.groupValues[3].lowercase()))
     }
+
+    private fun perUnit(text: String, weekday: DayOfWeek): Recurrence? {
+        val match = FREQUENCY.find(text) ?: return null
+        val unit = unitOf(match.groupValues[2]) ?: return null
+        val count = match.groupValues[1].toInt().coerceAtLeast(1)
+        return perUnit(unit, count, weekday, monthHint(match.groupValues[3].lowercase()))
+    }
+
+    private fun unitOf(word: String): RecurrenceUnit? =
+        UNIT_WORDS.entries.firstOrNull { word.lowercase() in it.value }?.key
+
+    private fun every(unit: RecurrenceUnit, count: Int, weekday: DayOfWeek, startMonth: Int?): Recurrence =
+        when (unit) {
+            RecurrenceUnit.DAY -> Recurrence(unit, count)
+            RecurrenceUnit.WEEK -> Recurrence(unit, count, weekday)
+            RecurrenceUnit.MONTH -> Recurrence(
+                unit, count, weekday, Ordinal.FIRST, month = if (count > 1) startMonth ?: 1 else null,
+            )
+            RecurrenceUnit.YEAR -> Recurrence(unit, count, weekday, Ordinal.FIRST, month = startMonth ?: 1)
+        }
+
+    private fun perUnit(unit: RecurrenceUnit, count: Int, weekday: DayOfWeek, startMonth: Int?): Recurrence =
+        when (unit) {
+            RecurrenceUnit.DAY -> every(unit, 1, weekday, null)
+            RecurrenceUnit.WEEK -> if (count == 1) every(unit, 1, weekday, null) else daily(DAYS_PER_WEEK, count)
+            RecurrenceUnit.MONTH -> when {
+                count == 1 -> every(unit, 1, weekday, null)
+                WEEKS_PER_MONTH % count == 0 -> every(RecurrenceUnit.WEEK, WEEKS_PER_MONTH / count, weekday, null)
+                else -> daily(DAYS_PER_MONTH, count)
+            }
+            RecurrenceUnit.YEAR -> when {
+                count == 1 -> every(unit, 1, weekday, startMonth)
+                MONTHS_PER_YEAR % count == 0 ->
+                    every(RecurrenceUnit.MONTH, MONTHS_PER_YEAR / count, weekday, startMonth)
+                WEEKS_PER_YEAR % count == 0 -> every(RecurrenceUnit.WEEK, WEEKS_PER_YEAR / count, weekday, null)
+                else -> daily(DAYS_PER_YEAR, count)
+            }
+        }
 
     private fun daily(days: Int, count: Int): Recurrence =
         Recurrence(RecurrenceUnit.DAY, (days.toDouble() / count).roundToInt().coerceAtLeast(1))

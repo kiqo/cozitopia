@@ -63,7 +63,16 @@ fun RecurrenceEditorDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text(strings(StringKey.SAVE)) } },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onChange(RecurrenceDraft.normalized(draft).toRecurrence())
+                    onDismiss()
+                },
+            ) {
+                Text(strings(StringKey.SAVE))
+            }
+        },
         title = { Text(strings(StringKey.COL_REPETITION)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {

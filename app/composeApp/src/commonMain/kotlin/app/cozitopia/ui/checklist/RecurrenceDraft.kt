@@ -3,6 +3,7 @@ package app.cozitopia.ui.checklist
 import app.cozitopia.domain.Ordinal
 import app.cozitopia.domain.Recurrence
 import app.cozitopia.domain.RecurrenceUnit
+import app.cozitopia.domain.Schedule
 import kotlinx.datetime.DayOfWeek
 
 enum class RepeatMode { ORDINAL_WEEKDAY, WEEKDAY, DATE }
@@ -51,7 +52,7 @@ data class RecurrenceDraft(
             unit = recurrence.unit,
             interval = recurrence.interval,
             ordinal = recurrence.ordinal ?: Ordinal.FIRST,
-            weekday = recurrence.weekday ?: DayOfWeek.SATURDAY,
+            weekday = recurrence.weekday ?: Schedule.DEFAULT_WEEKDAY,
             dayOfMonth = recurrence.dayOfMonth ?: 1,
             month = recurrence.month,
         ).withValidMode()

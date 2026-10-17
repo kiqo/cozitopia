@@ -9,6 +9,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 import kotlinx.serialization.builtins.ListSerializer
 
 class TaskMappingTest {
@@ -34,6 +35,7 @@ class TaskMappingTest {
         assignee = assignee,
         recurrence = recurrence,
         nextDate = LocalDate(2026, 10, 17),
+        startTime = LocalTime(16, 0),
     )
 
     @Test

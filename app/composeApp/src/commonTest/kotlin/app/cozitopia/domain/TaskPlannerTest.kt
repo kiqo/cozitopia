@@ -3,8 +3,13 @@ package app.cozitopia.domain
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
+import kotlinx.datetime.plus
 
 class TaskPlannerTest {
     private val today = LocalDate(2026, 10, 17)
@@ -27,7 +32,7 @@ class TaskPlannerTest {
 
         val tasks = TaskPlanner.plan(rows, listOf(alice, bob), today)
 
-        assertEquals(LocalDate(2027, 10, 2), tasks[0].nextDate)
+        assertEquals(LocalDate(2027, 10, 3), tasks[0].nextDate)
         assertEquals(Assignee.of("u1"), tasks[0].assignee)
         assertTrue(tasks[0].warnings.isEmpty())
         assertEquals(
@@ -35,26 +40,122 @@ class TaskPlannerTest {
             tasks[1].warnings,
         )
         assertEquals(Assignee.Unassigned, tasks[2].assignee)
+        assertNull(tasks[1].recurrence)
+        assertNull(tasks[1].nextDate)
     }
 
     @Test
-    fun recomputesNextDateWhenRecurrenceChanges() {
-        val planned = TaskPlanner.plan(ChecklistCsv.parse("A,B,sometimes,1h,").rows, listOf(alice), today).single()
+    fun proposesTheWeekdayOfASingleAssigneeAndSundayOtherwise() {
+        val monday = alice.copy(window = DayWindow(DayOfWeek.MONDAY))
+        val rows = ChecklistCsv.parse(
+            "Solo,Here,1x Woche,1h,Alice\n" +
+                "Duo,Here,1x Woche,1h,Alice;Bob\n" +
+                "All,Here,1x Woche,1h,Everyone\n" +
+                "Nobody,Here,1x Woche,1h,",
+        ).rows
 
-        val updated = TaskPlanner.withRecurrence(planned, Recurrence(RecurrenceUnit.DAY, 1), today)
+        val weekdays = TaskPlanner.plan(rows, listOf(monday, bob), today).map { it.recurrence?.weekday }
 
-        assertNotEquals(planned.nextDate, updated.nextDate)
-        assertEquals(today, updated.nextDate)
-        assertTrue(TaskWarning.UNRECOGNIZED_FREQUENCY !in updated.warnings)
+        assertEquals(
+            listOf(DayOfWeek.MONDAY, DayOfWeek.SUNDAY, DayOfWeek.SUNDAY, DayOfWeek.SUNDAY),
+            weekdays,
+        )
     }
 
     @Test
-    fun refreshesDates() {
-        val stale = task("a", 60, Recurrence(RecurrenceUnit.DAY, 1)).copy(nextDate = LocalDate(2020, 1, 1))
+    fun followsTheAssigneeAndTheirChangedWeekday() {
+        val weekly = Recurrence(RecurrenceUnit.WEEK, 1, DayOfWeek.SUNDAY)
+        val monday = alice.copy(window = DayWindow(DayOfWeek.MONDAY))
+        val friday = alice.copy(window = DayWindow(DayOfWeek.FRIDAY))
+        val unassigned = task("a", 60, weekly, Assignee.Unassigned)
 
-        val refreshed = TaskPlanner.refreshDates(listOf(stale), today)
+        val assigned = TaskPlanner.withAssignee(unassigned, Assignee.of("u1"), listOf(monday, bob))
+        val changed = TaskPlanner.withHomies(listOf(assigned), listOf(monday, bob), listOf(friday, bob)).single()
 
-        assertEquals(today, refreshed.single().nextDate)
+        assertEquals(DayOfWeek.MONDAY, assigned.recurrence?.weekday)
+        assertEquals(DayOfWeek.FRIDAY, changed.recurrence?.weekday)
+        assertEquals(LocalDate(2026, 10, 23), TaskPlanner.schedule(listOf(changed), listOf(friday, bob), today).single().nextDate)
+    }
+
+    @Test
+    fun keepsManuallyChosenWeekdayWhenAssigneeChanges() {
+        val manual = task("a", 60, Recurrence(RecurrenceUnit.WEEK, 1, DayOfWeek.WEDNESDAY))
+        val monday = alice.copy(window = DayWindow(DayOfWeek.MONDAY))
+
+        val assigned = TaskPlanner.withAssignee(manual, Assignee.of("u1"), listOf(monday))
+
+        assertEquals(DayOfWeek.WEDNESDAY, assigned.recurrence?.weekday)
+    }
+
+    @Test
+    fun reparsesEditedFrequencyText() {
+        val planned = TaskPlanner.plan(ChecklistCsv.parse("X,Y,1x Jahr,1h,\nA,B,1x Woche,1h,").rows, listOf(alice), today)[1]
+
+        val broken = TaskPlanner.withFrequency(planned, "Alle 2-3 Tage", listOf(alice))
+        val fixed = TaskPlanner.withFrequency(broken, "Alle 2 Monate", listOf(alice))
+
+        assertNull(broken.recurrence)
+        assertTrue(TaskWarning.UNRECOGNIZED_FREQUENCY in broken.warnings)
+        assertEquals(RecurrenceUnit.MONTH, fixed.recurrence?.unit)
+        assertEquals("Alle 2 Monate", fixed.frequencyText)
+        assertTrue(TaskWarning.UNRECOGNIZED_FREQUENCY !in fixed.warnings)
+        assertNull(TaskPlanner.schedule(listOf(broken), listOf(alice), today).single().nextDate)
+    }
+
+    @Test
+    fun treatsUnfilledTasksAsZeroHoursWhenAssigning() {
+        val unfilled = task("a", 60, yearly).copy(recurrence = null, nextDate = null)
+
+        val assigned = TaskPlanner.assignEvenly(listOf(unfilled, task("b", 60, monthly)), listOf(alice, bob))
+
+        assertEquals(0.0, TaskPlanner.yearlyHours(unfilled))
+        assertNull(assigned.first().recurrence)
+        assertTrue(assigned.all { it.assignee.kind == AssigneeKind.PEOPLE })
+    }
+
+    private val daily = Recurrence(RecurrenceUnit.DAY, 1)
+
+    private fun scheduled(vararg minutes: Int, window: DayWindow = DayWindow.DEFAULT): List<ChoreTask> {
+        val homie = alice.copy(window = window)
+        val tasks = minutes.mapIndexed { index, value -> task("t$index", value, daily, Assignee.of("u1")) }
+
+        return TaskPlanner.schedule(tasks, listOf(homie), today)
+    }
+
+    @Test
+    fun packsShortTasksBackToBackFromPreferredStart() {
+        val tasks = scheduled(60, 120)
+
+        assertEquals(listOf(LocalTime(10, 0), LocalTime(11, 0)), tasks.map { it.startTime })
+        assertEquals(setOf(today), tasks.map { it.nextDate }.toSet())
+    }
+
+    @Test
+    fun movesOverflowingTaskToNextOccurrence() {
+        val tasks = scheduled(300, 240)
+
+        assertEquals(listOf(today, today.plus(1, DateTimeUnit.DAY)), tasks.map { it.nextDate })
+        assertEquals(listOf(LocalTime(10, 0), LocalTime(10, 0)), tasks.map { it.startTime })
+    }
+
+    @Test
+    fun startsLongTaskEarlierAndAlone() {
+        val window = DayWindow(DayOfWeek.TUESDAY, LocalTime(17, 0), LocalTime(22, 0))
+
+        val tasks = scheduled(360, 30, window = window)
+
+        assertEquals(LocalTime(16, 0), tasks[0].startTime)
+        assertEquals(today, tasks[0].nextDate)
+        assertEquals(today.plus(1, DateTimeUnit.DAY), tasks[1].nextDate)
+        assertEquals(LocalTime(17, 0), tasks[1].startTime)
+    }
+
+    @Test
+    fun flagsTaskLongerThanADay() {
+        val tasks = scheduled(1500)
+
+        assertEquals(LocalTime(0, 0), tasks.single().startTime)
+        assertTrue(TaskWarning.EXCEEDS_DAY in tasks.single().warnings)
     }
 
     @Test
