@@ -12,6 +12,14 @@ alter table public.profiles
     add column if not exists preferred_start_time time not null default '10:00',
     add column if not exists latest_end_time time not null default '18:00';
 
+insert into public.profiles (id, email, display_name)
+select
+    id,
+    lower(email),
+    coalesce(raw_user_meta_data->>'display_name', split_part(email, '@', 1))
+from auth.users
+on conflict (id) do nothing;
+
 create table if not exists public.homes (
     id uuid primary key default gen_random_uuid(),
     name text not null default 'MyHome',
@@ -374,3 +382,5 @@ grant execute on function public.is_member(uuid), public.is_admin(uuid),
     public.create_home(text), public.invite_homie(uuid, text, text),
     public.accept_invitation(uuid), public.decline_invitation(uuid),
     public.save_tasks(uuid, jsonb) to authenticated;
+
+notify pgrst, 'reload schema';

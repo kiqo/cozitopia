@@ -1,21 +1,21 @@
 package app.cozitopia.data
 
 import app.cozitopia.i18n.StringKey
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.receiveAsFlow
+
+data class BusMessage(val error: AppError, val persistent: Boolean)
 
 class ErrorBus {
-    private val mutableMessages = MutableSharedFlow<AppError>(extraBufferCapacity = BUFFER)
-    val messages: SharedFlow<AppError> = mutableMessages.asSharedFlow()
+    private val channel = Channel<BusMessage>(Channel.UNLIMITED)
+    val messages: Flow<BusMessage> = channel.receiveAsFlow()
 
     fun report(error: AppError) {
-        mutableMessages.tryEmit(error)
+        channel.trySend(BusMessage(error, persistent = true))
     }
 
-    fun notify(key: StringKey) = report(AppError.Known(key))
-
-    private companion object {
-        const val BUFFER = 16
+    fun notify(key: StringKey) {
+        channel.trySend(BusMessage(AppError.Known(key), persistent = false))
     }
 }

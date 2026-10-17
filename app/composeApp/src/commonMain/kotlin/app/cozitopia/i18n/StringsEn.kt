@@ -115,4 +115,7 @@ val stringsEn: Map<StringKey, String> = mapOf(
     StringKey.ERROR_INVALID_ROLE to "The role must be Admin or Homie.",
     StringKey.ERROR_INVALID_EMAIL to "Enter a valid email address.",
     StringKey.ERROR_NETWORK to "Network error. Please check your connection.",
+    StringKey.ERROR_NO_HOMIES to "No homies loaded, cannot assign tasks.",
+    StringKey.ERROR_NO_TASKS to "There are no tasks to assign.",
+    StringKey.DISMISS to "Dismiss",
 )

@@ -1,5 +1,6 @@
 package app.cozitopia.ui.checklist
 
+import app.cozitopia.data.AppError
 import app.cozitopia.data.ErrorBus
 import app.cozitopia.data.HomeRepository
 import app.cozitopia.data.TaskRepository
@@ -11,6 +12,7 @@ import app.cozitopia.domain.Homie
 import app.cozitopia.domain.Recurrence
 import app.cozitopia.domain.TaskPlanner
 import app.cozitopia.domain.TaskWarning
+import app.cozitopia.i18n.StringKey
 import app.cozitopia.ui.ScreenViewModel
 import app.cozitopia.ui.today
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,6 +26,13 @@ data class ChecklistState(
     val finished: Boolean = false,
     val importCount: Int = 0,
 ) {
+    val assignBlocker: StringKey?
+        get() = when {
+            tasks.isEmpty() -> StringKey.ERROR_NO_TASKS
+            homies.isEmpty() -> StringKey.ERROR_NO_HOMIES
+            else -> null
+        }
+
     val canFinish: Boolean
         get() = tasks.none { it.recurrence == null || TaskWarning.INVALID_DURATION in it.warnings }
 }
@@ -89,8 +98,15 @@ class ChecklistViewModel(
         state.copy(tasks = TaskPlanner.schedule(state.tasks.filterNot { it.id == taskId }, state.homies, today()))
     }
 
-    fun assignAll() = mutableState.update {
-        it.copy(tasks = TaskPlanner.schedule(TaskPlanner.assignEvenly(it.tasks, it.homies), it.homies, today()))
+    fun assignAll() {
+        val blocker = mutableState.value.assignBlocker
+        if (blocker != null) {
+            errors.report(AppError.Known(blocker))
+            return
+        }
+        mutableState.update {
+            it.copy(tasks = TaskPlanner.schedule(TaskPlanner.assignEvenly(it.tasks, it.homies), it.homies, today()))
+        }
     }
 
     fun refreshDates() = mutableState.update {

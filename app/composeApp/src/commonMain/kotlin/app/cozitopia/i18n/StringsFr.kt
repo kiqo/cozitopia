@@ -115,4 +115,7 @@ val stringsFr: Map<StringKey, String> = mapOf(
     StringKey.ERROR_INVALID_ROLE to "Le rôle doit être Admin ou Homie.",
     StringKey.ERROR_INVALID_EMAIL to "Saisissez une adresse e-mail valide.",
     StringKey.ERROR_NETWORK to "Erreur réseau. Vérifiez votre connexion.",
+    StringKey.ERROR_NO_HOMIES to "Aucun colocataire chargé, impossible d'attribuer les tâches.",
+    StringKey.ERROR_NO_TASKS to "Il n'y a aucune tâche à attribuer.",
+    StringKey.DISMISS to "Fermer",
 )
