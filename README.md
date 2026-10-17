@@ -9,15 +9,37 @@ Cozitopia lets homies share a home on Supabase: email/password accounts, homes w
 
 ### Setup
 
-1. Create a Supabase project and apply `supabase/schema.sql` in the SQL editor. Optionally run `supabase/rls_check.sql` there to verify the isolation between homes (it rolls back).
-2. For testing, disable "Confirm email" under Authentication in the Supabase dashboard.
-3. Provide the project values without committing them, either in `~/.gradle/gradle.properties` as `supabaseUrl=...` and `supabaseAnonKey=...` or as the environment variables `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
-4. Create `app/local.properties` with `sdk.dir=/path/to/Android/sdk` for the Android build.
+Prerequisites: JDK 17 or newer; for Android also the Android SDK (platform 37) and a device or emulator.
 
-### Run
+1. Create a Supabase project at https://supabase.com/dashboard.
+2. In its SQL Editor run `supabase/schema.sql`, then optionally `supabase/rls_check.sql` (it rolls back and leaves no data). An empty one-row result means all checks passed.
+3. For testing, disable "Confirm email" under Authentication > Providers > Email.
+4. Copy the Project URL (without `/rest/v1/`) and the publishable key (`sb_publishable_...`) from Project Settings > API Keys. Never use the secret key. Store them outside the repo in `~/.gradle/gradle.properties`:
 
-- Android: `cd app && ./gradlew :androidApp:assembleDebug` (APK in `app/androidApp/build/outputs/apk/debug/`) or `./gradlew :androidApp:installDebug` with a device attached.
-- Web: `cd app && ./gradlew :composeApp:wasmJsBrowserDevelopmentRun`
+```
+supabaseUrl=https://<project-ref>.supabase.co
+supabaseAnonKey=sb_publishable_...
+```
+
+Alternatively set the environment variables `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
+5. Android only: create `app/local.properties` with `sdk.dir=/path/to/Android/sdk`.
+
+### How to Run the app
+
+Web, then open the printed URL (usually http://localhost:8080):
+
+```
+cd app && ./gradlew :composeApp:wasmJsBrowserDevelopmentRun
+```
+
+Android, build the APK (`app/androidApp/build/outputs/apk/debug/`) or install it on an attached device:
+
+```
+cd app && ./gradlew :androidApp:assembleDebug
+cd app && ./gradlew :androidApp:installDebug
+```
+
+After changing the Supabase values, rebuild so they are compiled in.
 
 ### Tests
 
