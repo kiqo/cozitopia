@@ -36,11 +36,11 @@ object ChecklistCsv {
         if (numbered.isEmpty()) return CsvImport(emptyList(), emptyList())
         val delimiter = detectDelimiter(numbered.first().value)
         val records = numbered.map { (index, line) -> index + 1 to splitLine(line, delimiter) }
-        val body = if (isRealRow(records.first().second, delimiter)) records else records.drop(1)
+        val body = if (isRealRow(records.first().second)) records else records.drop(1)
         val rows = mutableListOf<CsvRow>()
         val skipped = mutableListOf<Int>()
         body.forEach { (lineNumber, fields) ->
-            toRow(fields, delimiter)?.let(rows::add) ?: skipped.add(lineNumber)
+            toRow(fields)?.let(rows::add) ?: skipped.add(lineNumber)
         }
         return CsvImport(rows, skipped)
     }
@@ -74,14 +74,10 @@ object ChecklistCsv {
         return (if (isMinutes) value else value * 60).roundToInt()
     }
 
-    private fun toRow(fields: List<String>, delimiter: Char): CsvRow? {
+    private fun toRow(fields: List<String>): CsvRow? {
         if (fields.size < MIN_FIELDS || fields[0].isBlank()) return null
         val duration = parseDuration(fields[3])
-        val assigneeNames = if (delimiter == ';') {
-            fields.drop(ASSIGNEE_INDEX)
-        } else {
-            fields.getOrElse(ASSIGNEE_INDEX) { "" }.split(';')
-        }
+        val assigneeNames = fields.drop(ASSIGNEE_INDEX).flatMap { it.split(',', ';', '&') }
         return CsvRow(
             what = fields[0],
             where = fields[1],
@@ -92,8 +88,8 @@ object ChecklistCsv {
         )
     }
 
-    private fun isRealRow(fields: List<String>, delimiter: Char): Boolean =
-        toRow(fields, delimiter)?.let { it.durationValid && Schedule.propose(it.frequencyText) != null } == true
+    private fun isRealRow(fields: List<String>): Boolean =
+        toRow(fields)?.let { it.durationValid && Schedule.propose(it.frequencyText) != null } == true
 
     private fun detectDelimiter(line: String): Char =
         listOf(',', ';', '\t').maxBy { delimiter -> line.count { it == delimiter } }

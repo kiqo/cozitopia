@@ -66,14 +66,16 @@ class ChecklistCsvTest {
     }
 
     @Test
-    fun parsesQuotedFieldsAndSemicolonSeparatedAssignees() {
+    fun parsesQuotedFieldsAndSeparatedAssignees() {
         val quoted = ChecklistCsv.parse("\"Bad, putzen\",'Haus, oben',2x Monat,90min,\"Alice;Bob\"").rows.single()
         val semicolons = ChecklistCsv.parse("Boden;Haus;1x Woche;1h;Alice;Bob").rows.single()
+        val commasAndAmpersand = ChecklistCsv.parse("Boden,Haus,1x Woche,1h,\"Alice, Bob & Cara\"").rows.single()
 
         assertEquals("Bad, putzen", quoted.what)
         assertEquals("Haus, oben", quoted.where)
         assertEquals(listOf("Alice", "Bob"), quoted.assigneeNames)
         assertEquals(listOf("Alice", "Bob"), semicolons.assigneeNames)
+        assertEquals(listOf("Alice", "Bob", "Cara"), commasAndAmpersand.assigneeNames)
     }
 
     @Test
