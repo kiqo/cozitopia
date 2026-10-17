@@ -139,6 +139,16 @@ class TaskPlannerTest {
     }
 
     @Test
+    fun shiftsOverflowingYearlyTaskByOneWeekInsteadOfOneYear() {
+        val yearly = Recurrence(RecurrenceUnit.YEAR, 1, DayOfWeek.SUNDAY, Ordinal.FIRST, month = 4)
+        val tasks = listOf(task("a", 450, yearly, Assignee.of("u1")), task("b", 450, yearly, Assignee.of("u1")))
+
+        val planned = TaskPlanner.schedule(tasks, listOf(alice), today)
+
+        assertEquals(listOf(LocalDate(2027, 4, 4), LocalDate(2027, 4, 11)), planned.map { it.nextDate })
+    }
+
+    @Test
     fun startsLongTaskEarlierAndAlone() {
         val window = DayWindow(DayOfWeek.TUESDAY, LocalTime(17, 0), LocalTime(22, 0))
 

@@ -7,6 +7,8 @@ import kotlinx.datetime.plus
 
 object TaskPlanner {
     private const val MINUTES_PER_HOUR = 60
+    private const val DAYS_PER_WEEK = 7
+    private const val MAX_SHIFTS = 4
 
     private class Day(var cursor: Int, var alone: Boolean)
 
@@ -116,7 +118,9 @@ object TaskPlanner {
         if (duration == 0) return Placement(base, window.start, false)
         val start = window.start.minutes()
         val end = window.end.minutes()
+        val step = if (recurrence.weekday != null) DAYS_PER_WEEK else 1
         var date = base
+        var shifts = 0
         while (true) {
             val key = DayKey(window.start, window.end, date)
             val day = days[key]
@@ -135,7 +139,13 @@ object TaskPlanner {
                     return placed
                 }
             }
-            date = Schedule.nextDate(recurrence, date.plus(1, DateTimeUnit.DAY))
+            shifts += 1
+            date = if (shifts <= MAX_SHIFTS) {
+                date.plus(step, DateTimeUnit.DAY)
+            } else {
+                shifts = 0
+                Schedule.nextDate(recurrence, date.plus(1, DateTimeUnit.DAY))
+            }
         }
     }
 
