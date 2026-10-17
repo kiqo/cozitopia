@@ -17,6 +17,8 @@ sealed interface ExportScope {
     data object All : ExportScope
 
     data class OwnAndSelected(val userIds: Set<String>) : ExportScope
+
+    data class ForHomie(val userId: String) : ExportScope
 }
 
 object IcsExporter {
@@ -27,6 +29,7 @@ object IcsExporter {
         when (scope) {
             ExportScope.All -> tasks
             ExportScope.Own -> tasks.filter { isOwn(it, me) }
+            is ExportScope.ForHomie -> tasks.filter { isOwn(it, scope.userId) }
             is ExportScope.OwnAndSelected ->
                 tasks.filter { task -> isOwn(task, me) || scope.userIds.any(task.assignee::includes) }
         }
