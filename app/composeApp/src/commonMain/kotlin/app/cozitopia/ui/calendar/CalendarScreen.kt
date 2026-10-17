@@ -38,6 +38,7 @@ import app.cozitopia.ui.assigneeLabel
 private enum class ScopeChoice(val title: StringKey, val fileName: String) {
     OWN(StringKey.SCOPE_OWN, "own"),
     OWN_SELECTED(StringKey.SCOPE_OWN_SELECTED, "own-selected"),
+    HOMIE(StringKey.SCOPE_HOMIE, "homie"),
     ALL(StringKey.SCOPE_ALL, "all"),
 }
 
@@ -114,16 +115,25 @@ private fun ExportDialog(others: List<Homie>, onExport: (ExportScope, String) ->
     val strings = LocalStrings.current
     var choice by remember { mutableStateOf(ScopeChoice.OWN) }
     var selected by remember { mutableStateOf(emptySet<String>()) }
+    var target by remember { mutableStateOf(others.firstOrNull()) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(strings(StringKey.EXPORT_ICS)) },
         text = {
             Column {
-                ScopeChoice.entries.forEach { option ->
+                ScopeChoice.entries.filter { it != ScopeChoice.HOMIE || others.isNotEmpty() }.forEach { option ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         RadioButton(selected = choice == option, onClick = { choice = option })
                         Text(strings(option.title))
+                    }
+                }
+                if (choice == ScopeChoice.HOMIE) {
+                    others.forEach { homie ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(selected = target == homie, onClick = { target = homie })
+                            Text(homie.name)
+                        }
                     }
                 }
                 if (choice == ScopeChoice.OWN_SELECTED) {
@@ -144,12 +154,14 @@ private fun ExportDialog(others: List<Homie>, onExport: (ExportScope, String) ->
         confirmButton = {
             TextButton(
                 onClick = {
+                    val homie = target
                     val scope = when (choice) {
                         ScopeChoice.OWN -> ExportScope.Own
+                        ScopeChoice.HOMIE -> homie?.let { ExportScope.ForHomie(it.userId) } ?: ExportScope.Own
                         ScopeChoice.OWN_SELECTED -> ExportScope.OwnAndSelected(selected)
                         ScopeChoice.ALL -> ExportScope.All
                     }
-                    onExport(scope, choice.fileName)
+                    onExport(scope, if (choice == ScopeChoice.HOMIE && homie != null) "homie-${homie.name.lowercase().replace(Regex("[^a-z0-9]+"), "-")}" else choice.fileName)
                     onDismiss()
                 },
             ) {

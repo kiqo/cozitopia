@@ -106,6 +106,7 @@ val stringsEn: Map<StringKey, String> = mapOf(
     StringKey.EXPORT_ICS to "Export .ics",
     StringKey.SCOPE_OWN to "My tasks (incl. Unassigned and Everyone)",
     StringKey.SCOPE_OWN_SELECTED to "My tasks plus selected homies",
+    StringKey.SCOPE_HOMIE to "Another homie's calendar (to send to them)",
     StringKey.SCOPE_ALL to "All tasks",
     StringKey.NO_OCCURRENCES to "No tasks scheduled yet.",
     StringKey.MINUTES to "{minutes} min",

@@ -106,6 +106,7 @@ enum class StringKey {
     EXPORT_ICS,
     SCOPE_OWN,
     SCOPE_OWN_SELECTED,
+    SCOPE_HOMIE,
     SCOPE_ALL,
     NO_OCCURRENCES,
     MINUTES,

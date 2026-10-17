@@ -37,6 +37,11 @@ class IcsExporterTest {
     }
 
     @Test
+    fun filtersForAnotherHomie() {
+        assertEquals(listOf("shared", "theirs", "everyone", "nobody"), ids(ExportScope.ForHomie("other")))
+    }
+
+    @Test
     fun exportsCalendarWithCrlfAndRecurrence() {
         val ics = IcsExporter.export(listOf(task("t1", Assignee.Everyone, "Clean", "Kitchen")), "MyHome", generatedAt)
 
