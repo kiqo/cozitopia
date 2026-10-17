@@ -69,6 +69,14 @@ begin
             new_home.id, 'b@example.test', 'HOMIE'),
         'DUPLICATE_INVITATION'
     );
+    perform public.rls_check_expect(
+        format('select public.invite_homie(%L, %L, %L)', new_home.id, 'd@example.test', 'OWNER'),
+        'INVALID_ROLE'
+    );
+    perform public.rls_check_expect(
+        format('select public.invite_homie(%L, %L, %L)', new_home.id, '   ', 'HOMIE'),
+        'INVALID_EMAIL'
+    );
 end;
 $$;
 

@@ -240,6 +240,12 @@ begin
     if not public.is_admin(target_home) then
         raise exception 'NOT_ADMIN';
     end if;
+    if invitee_role not in ('ADMIN', 'HOMIE') then
+        raise exception 'INVALID_ROLE';
+    end if;
+    if normalized_email !~ '^[^@\s]+@[^@\s]+$' then
+        raise exception 'INVALID_EMAIL';
+    end if;
     if exists (
         select 1
         from public.profiles
