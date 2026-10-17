@@ -23,7 +23,10 @@ data class ChecklistState(
     val skippedLines: List<Int> = emptyList(),
     val finished: Boolean = false,
     val importCount: Int = 0,
-)
+) {
+    val canFinish: Boolean
+        get() = tasks.none { it.recurrence == null || TaskWarning.INVALID_DURATION in it.warnings }
+}
 
 class ChecklistViewModel(
     private val homeId: String,
@@ -36,7 +39,12 @@ class ChecklistViewModel(
 
     fun refresh() = launchCatching {
         val homies = homes.members(homeId).map { it.homie }
-        mutableState.update { it.copy(homies = homies) }
+        mutableState.update {
+            it.copy(
+                homies = homies,
+                tasks = TaskPlanner.schedule(TaskPlanner.withHomies(it.tasks, it.homies, homies), homies, today()),
+            )
+        }
     }
 
     fun downloadTemplate() = launchCatching {
@@ -54,46 +62,54 @@ class ChecklistViewModel(
         }
     }
 
-    fun setWhat(taskId: String, what: String) = edit(taskId) { it.copy(what = what) }
+    fun setWhat(taskId: String, what: String) = edit(taskId) { task, _ -> task.copy(what = what) }
 
-    fun setWhere(taskId: String, where: String) = edit(taskId) { it.copy(where = where) }
+    fun setWhere(taskId: String, where: String) = edit(taskId) { task, _ -> task.copy(where = where) }
 
-    fun setDuration(taskId: String, text: String) = edit(taskId) {
+    fun setDuration(taskId: String, text: String) = edit(taskId) { task, _ ->
         val minutes = ChecklistCsv.parseDuration(text)
         val warnings = if (minutes == null) {
-            it.warnings + TaskWarning.INVALID_DURATION
+            task.warnings + TaskWarning.INVALID_DURATION
         } else {
-            it.warnings - TaskWarning.INVALID_DURATION
+            task.warnings - TaskWarning.INVALID_DURATION
         }
-        it.copy(durationMinutes = minutes ?: 0, warnings = warnings)
+        task.copy(durationMinutes = minutes ?: 0, warnings = warnings)
     }
 
-    fun setAssignee(taskId: String, assignee: Assignee) = edit(taskId) {
-        it.copy(assignee = assignee, warnings = it.warnings - TaskWarning.UNKNOWN_ASSIGNEE)
-    }
+    fun setAssignee(taskId: String, assignee: Assignee) =
+        edit(taskId) { task, homies -> TaskPlanner.withAssignee(task, assignee, homies) }
 
-    fun setRecurrence(taskId: String, recurrence: Recurrence) = edit(taskId) {
-        TaskPlanner.withRecurrence(it, recurrence, today())
-    }
+    fun setFrequency(taskId: String, text: String) =
+        edit(taskId) { task, homies -> TaskPlanner.withFrequency(task, text, homies) }
+
+    fun setRecurrence(taskId: String, recurrence: Recurrence) =
+        edit(taskId) { task, _ -> TaskPlanner.withRecurrence(task, recurrence) }
 
     fun delete(taskId: String) = mutableState.update { state ->
-        state.copy(tasks = state.tasks.filterNot { it.id == taskId })
+        state.copy(tasks = TaskPlanner.schedule(state.tasks.filterNot { it.id == taskId }, state.homies, today()))
     }
 
-    fun assignAll() = mutableState.update { it.copy(tasks = TaskPlanner.assignEvenly(it.tasks, it.homies)) }
+    fun assignAll() = mutableState.update {
+        it.copy(tasks = TaskPlanner.schedule(TaskPlanner.assignEvenly(it.tasks, it.homies), it.homies, today()))
+    }
 
-    fun refreshDates() = mutableState.update { it.copy(tasks = TaskPlanner.refreshDates(it.tasks, today())) }
+    fun refreshDates() = mutableState.update {
+        it.copy(tasks = TaskPlanner.schedule(it.tasks, it.homies, today()))
+    }
 
     fun finish() = launchCatching {
+        if (!mutableState.value.canFinish) return@launchCatching
         taskRepository.saveChecklist(homeId, mutableState.value.tasks)
         mutableState.update { it.copy(finished = true) }
     }
 
     fun dismissFinished() = mutableState.update { it.copy(finished = false) }
 
-    private fun edit(taskId: String, transform: (ChoreTask) -> ChoreTask) = mutableState.update { state ->
-        state.copy(tasks = state.tasks.map { if (it.id == taskId) transform(it) else it })
-    }
+    private fun edit(taskId: String, transform: (ChoreTask, List<Homie>) -> ChoreTask) =
+        mutableState.update { state ->
+            val edited = state.tasks.map { if (it.id == taskId) transform(it, state.homies) else it }
+            state.copy(tasks = TaskPlanner.schedule(edited, state.homies, today()))
+        }
 
     private companion object {
         const val TEMPLATE_FILE_NAME = "cozitopia-template.csv"

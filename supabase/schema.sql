@@ -6,6 +6,12 @@ create table if not exists public.profiles (
     display_name text not null default ''
 );
 
+alter table public.profiles
+    add column if not exists preferred_weekday smallint not null default 7
+    check (preferred_weekday between 1 and 7),
+    add column if not exists preferred_start_time time not null default '10:00',
+    add column if not exists latest_end_time time not null default '18:00';
+
 create table if not exists public.homes (
     id uuid primary key default gen_random_uuid(),
     name text not null default 'MyHome',
@@ -46,6 +52,9 @@ create table if not exists public.tasks (
     next_date date not null,
     created_at timestamptz not null default now()
 );
+
+alter table public.tasks
+    add column if not exists start_time time not null default '10:00';
 
 create unique index if not exists invitations_pending_unique
     on public.invitations (home_id, email) where status = 'PENDING';
@@ -147,7 +156,7 @@ revoke insert, delete on public.profiles from authenticated;
 revoke update on public.profiles from authenticated;
 grant update (name) on public.homes to authenticated;
 grant update (role) on public.home_members to authenticated;
-grant update (display_name) on public.profiles to authenticated;
+grant update (display_name, preferred_weekday, preferred_start_time, latest_end_time) on public.profiles to authenticated;
 
 drop policy if exists profiles_select on public.profiles;
 create policy profiles_select on public.profiles for select to authenticated
@@ -323,7 +332,7 @@ begin
     return query
     insert into public.tasks (
         home_id, what, location, frequency_text, duration_minutes,
-        assignee_kind, assignee_ids, recurrence, next_date
+        assignee_kind, assignee_ids, recurrence, next_date, start_time
     )
     select
         target_home,
@@ -338,7 +347,8 @@ begin
             '{}'
         ),
         incoming.recurrence,
-        incoming.next_date
+        incoming.next_date,
+        coalesce(incoming.start_time, '10:00')
     from jsonb_to_recordset(new_tasks) as incoming (
         what text,
         location text,
@@ -347,7 +357,8 @@ begin
         assignee_kind text,
         assignee_ids jsonb,
         recurrence jsonb,
-        next_date date
+        next_date date,
+        start_time time
     )
     returning *;
 end;

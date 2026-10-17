@@ -52,6 +52,20 @@ class ChecklistCsvTest {
     }
 
     @Test
+    fun dropsFirstRowOnlyWhenItIsNotARealRow() {
+        val header = ChecklistCsv.parse("Was?,Räume?,Wie oft?,Wie lange?\nA,B,1x Jahr,1h")
+        val realFirst = ChecklistCsv.parse("A,B,1x Jahr,1h\nC,D,Alle 2 Monate,")
+        val badDuration = ChecklistCsv.parse("A,B,1x Jahr,soon\nC,D,1x Jahr,1h")
+        val badFrequency = ChecklistCsv.parse("A,B,Wie oft?,1h\nC,D,1x Jahr,1h")
+
+        assertEquals(listOf("A"), header.rows.map { it.what })
+        assertTrue(header.skippedLines.isEmpty())
+        assertEquals(listOf("A", "C"), realFirst.rows.map { it.what })
+        assertEquals(listOf("C"), badDuration.rows.map { it.what })
+        assertEquals(listOf("C"), badFrequency.rows.map { it.what })
+    }
+
+    @Test
     fun parsesQuotedFieldsAndSemicolonSeparatedAssignees() {
         val quoted = ChecklistCsv.parse("\"Bad, putzen\",'Haus, oben',2x Monat,90min,\"Alice;Bob\"").rows.single()
         val semicolons = ChecklistCsv.parse("Boden;Haus;1x Woche;1h;Alice;Bob").rows.single()
@@ -90,7 +104,7 @@ class ChecklistCsvTest {
 
     @Test
     fun flagsUnparseableDuration() {
-        val row = ChecklistCsv.parse("A,B,1x Jahr,soon,").rows.single()
+        val row = ChecklistCsv.parse("X,Y,1x Jahr,1h,\nA,B,1x Jahr,4h (timeboxed),").rows.last()
 
         assertEquals(0, row.durationMinutes)
         assertFalse(row.durationValid)

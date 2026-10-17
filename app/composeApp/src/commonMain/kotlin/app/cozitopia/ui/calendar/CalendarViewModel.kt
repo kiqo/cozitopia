@@ -57,7 +57,9 @@ data class CalendarState(
             val from = today()
             val until = from.plus(HORIZON_MONTHS, DateTimeUnit.MONTH)
             return tasks.filter(filter::matches)
-                .flatMap { task -> Schedule.occurrences(task.recurrence, from, until).map { Occurrence(it, task) } }
+                .flatMap { task ->
+                    task.recurrence?.let { Schedule.occurrences(it, from, until) }.orEmpty().map { Occurrence(it, task) }
+                }
                 .sortedBy { it.date }
         }
 

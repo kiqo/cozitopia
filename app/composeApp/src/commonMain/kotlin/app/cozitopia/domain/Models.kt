@@ -2,6 +2,7 @@ package app.cozitopia.domain
 
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 
@@ -13,10 +14,26 @@ enum class Ordinal { FIRST, SECOND, THIRD, FOURTH, LAST }
 
 enum class AssigneeKind { EVERYONE, UNASSIGNED, PEOPLE }
 
-enum class TaskWarning { UNKNOWN_ASSIGNEE, INVALID_DURATION, UNRECOGNIZED_FREQUENCY }
+enum class TaskWarning { UNKNOWN_ASSIGNEE, INVALID_DURATION, UNRECOGNIZED_FREQUENCY, EXCEEDS_DAY }
 
 @Serializable
-data class Homie(val userId: String, val name: String, val role: Role)
+data class DayWindow(
+    val weekday: DayOfWeek = DayOfWeek.SUNDAY,
+    val start: LocalTime = LocalTime(10, 0),
+    val end: LocalTime = LocalTime(18, 0),
+) {
+    companion object {
+        val DEFAULT = DayWindow()
+    }
+}
+
+@Serializable
+data class Homie(
+    val userId: String,
+    val name: String,
+    val role: Role,
+    val window: DayWindow = DayWindow.DEFAULT,
+)
 
 @Serializable
 data class Home(val id: String, val name: String)
@@ -63,7 +80,8 @@ data class ChoreTask(
     val frequencyText: String,
     val durationMinutes: Int,
     val assignee: Assignee,
-    val recurrence: Recurrence,
-    val nextDate: LocalDate,
+    val recurrence: Recurrence?,
+    val nextDate: LocalDate?,
+    val startTime: LocalTime? = null,
     @Transient val warnings: Set<TaskWarning> = emptySet(),
 )

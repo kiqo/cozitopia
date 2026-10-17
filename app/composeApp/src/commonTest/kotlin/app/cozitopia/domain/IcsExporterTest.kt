@@ -6,6 +6,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 
 class IcsExporterTest {
     private val generatedAt = Instant.parse("2026-10-17T09:05:07Z")
@@ -71,5 +72,17 @@ class IcsExporterTest {
         assertTrue(physical.all { it.encodeToByteArray().size <= 75 })
         assertTrue(physical.any { it.startsWith(" ") })
         assertTrue("SUMMARY:$what\r\n" in unfolded)
+    }
+
+    @Test
+    fun exportsTimedEventsWithFloatingTimeAndAllDayForZeroDuration() {
+        val timed = task("timed", Assignee.Everyone).copy(startTime = LocalTime(23, 30), durationMinutes = 90)
+        val untimed = task("zero", Assignee.Everyone).copy(startTime = LocalTime(10, 0), durationMinutes = 0)
+
+        val ics = IcsExporter.export(listOf(timed, untimed), "MyHome", generatedAt)
+
+        assertTrue(ics.contains("DTSTART:20261017T233000\r\n"))
+        assertTrue(ics.contains("DTEND:20261018T010000\r\n"))
+        assertTrue(ics.contains("DTSTART;VALUE=DATE:20261017\r\n"))
     }
 }

@@ -19,11 +19,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.cozitopia.i18n.LocalStrings
 import app.cozitopia.i18n.StringKey
+import app.cozitopia.i18n.key
+import app.cozitopia.ui.DropdownSelect
+import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.LocalTime
+
+private val HALF_HOURS = (0 until 48).map { LocalTime(it / 2, it % 2 * 30) }
 
 @Composable
 fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier) {
     val strings = LocalStrings.current
     val saved by viewModel.displayName.collectAsState()
+    val window by viewModel.window.collectAsState()
     var displayName by remember(saved) { mutableStateOf(saved) }
 
     Column(modifier = modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -38,5 +45,26 @@ fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier) {
         Button(onClick = { viewModel.save(displayName) }, enabled = displayName.isNotBlank()) {
             Text(strings(StringKey.SAVE))
         }
+        Text(text = strings(StringKey.PREFERRED_WEEKDAY), style = MaterialTheme.typography.labelLarge)
+        DropdownSelect(
+            selected = strings(window.weekday.key()),
+            options = DayOfWeek.entries,
+            optionLabel = { strings(it.key()) },
+            onSelect = { viewModel.setWindow(window.copy(weekday = it)) },
+        )
+        Text(text = strings(StringKey.PREFERRED_START), style = MaterialTheme.typography.labelLarge)
+        DropdownSelect(
+            selected = window.start.toString(),
+            options = HALF_HOURS,
+            optionLabel = { it.toString() },
+            onSelect = { viewModel.setWindow(window.copy(start = it)) },
+        )
+        Text(text = strings(StringKey.LATEST_END), style = MaterialTheme.typography.labelLarge)
+        DropdownSelect(
+            selected = window.end.toString(),
+            options = HALF_HOURS,
+            optionLabel = { it.toString() },
+            onSelect = { viewModel.setWindow(window.copy(end = it)) },
+        )
     }
 }
