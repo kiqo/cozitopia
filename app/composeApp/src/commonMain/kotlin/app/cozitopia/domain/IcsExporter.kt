@@ -12,26 +12,30 @@ import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 
 sealed interface ExportScope {
-    data object Own : ExportScope
-
     data object All : ExportScope
 
-    data class OwnAndSelected(val userIds: Set<String>) : ExportScope
-
-    data class ForHomie(val userId: String) : ExportScope
+    data class Single(val userId: String) : ExportScope
 }
 
 object IcsExporter {
     private const val MAX_OCTETS = 75
     private const val CRLF = "\r\n"
 
-    fun filter(tasks: List<ChoreTask>, me: String, scope: ExportScope): List<ChoreTask> =
+    fun fileName(homieName: String?): String {
+        val suffix = homieName
+            ?.map { if (it.isLetterOrDigit() || it == '-') it else '_' }
+            ?.joinToString("")
+            ?.replace(Regex("_+"), "_")
+            ?.trim('_')
+            ?.ifEmpty { null }
+            ?: "all"
+        return "cozitopia_calendar_$suffix.ics"
+    }
+
+    fun filter(tasks: List<ChoreTask>, scope: ExportScope): List<ChoreTask> =
         when (scope) {
             ExportScope.All -> tasks
-            ExportScope.Own -> tasks.filter { isOwn(it, me) }
-            is ExportScope.ForHomie -> tasks.filter { isOwn(it, scope.userId) }
-            is ExportScope.OwnAndSelected ->
-                tasks.filter { task -> isOwn(task, me) || scope.userIds.any(task.assignee::includes) }
+            is ExportScope.Single -> tasks.filter { isOwn(it, scope.userId) }
         }
 
     fun export(tasks: List<ChoreTask>, homeName: String, generatedAt: Instant): String = buildString {

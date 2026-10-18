@@ -1,6 +1,7 @@
 package app.cozitopia.ui.calendar
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,7 +14,9 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -31,16 +34,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.cozitopia.domain.ExportScope
 import app.cozitopia.domain.Homie
+import app.cozitopia.domain.IcsExporter
 import app.cozitopia.i18n.LocalStrings
 import app.cozitopia.i18n.StringKey
 import app.cozitopia.ui.assigneeLabel
-
-private enum class ScopeChoice(val title: StringKey, val fileName: String) {
-    OWN(StringKey.SCOPE_OWN, "own"),
-    OWN_SELECTED(StringKey.SCOPE_OWN_SELECTED, "own-selected"),
-    HOMIE(StringKey.SCOPE_HOMIE, "homie"),
-    ALL(StringKey.SCOPE_ALL, "all"),
-}
 
 @Composable
 fun CalendarScreen(viewModel: CalendarViewModel, myUserId: String, modifier: Modifier = Modifier) {
@@ -98,7 +95,8 @@ fun CalendarScreen(viewModel: CalendarViewModel, myUserId: String, modifier: Mod
 
     if (exporting) {
         ExportDialog(
-            others = others,
+            homies = state.homies,
+            myUserId = myUserId,
             onExport = { scope, name -> viewModel.export(scope, name) },
             onDismiss = { exporting = false },
         )
@@ -111,57 +109,61 @@ private fun FilterOption(current: CalendarFilter, option: CalendarFilter, label:
 }
 
 @Composable
-private fun ExportDialog(others: List<Homie>, onExport: (ExportScope, String) -> Unit, onDismiss: () -> Unit) {
+private fun ExportDialog(
+    homies: List<Homie>,
+    myUserId: String,
+    onExport: (ExportScope, String) -> Unit,
+    onDismiss: () -> Unit,
+) {
     val strings = LocalStrings.current
-    var choice by remember { mutableStateOf(ScopeChoice.OWN) }
-    var selected by remember { mutableStateOf(emptySet<String>()) }
-    var target by remember { mutableStateOf(others.firstOrNull()) }
+    var single by remember { mutableStateOf(true) }
+    var selectedId by remember { mutableStateOf(myUserId) }
+    var menuOpen by remember { mutableStateOf(false) }
+    val selected = homies.firstOrNull { it.userId == selectedId }
+    fun label(homie: Homie) =
+        if (homie.userId == myUserId) strings(StringKey.MYSELF_NAMED, "name" to homie.name) else homie.name
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(strings(StringKey.EXPORT_ICS)) },
+        title = { Text(strings(StringKey.EXPORT_DIALOG_TITLE)) },
         text = {
-            Column {
-                ScopeChoice.entries.filter { it != ScopeChoice.HOMIE || others.isNotEmpty() }.forEach { option ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(selected = choice == option, onClick = { choice = option })
-                        Text(strings(option.title))
-                    }
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(strings(StringKey.EXPORT_FOR))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    RadioButton(selected = single, onClick = { single = true })
+                    Text(strings(StringKey.SCOPE_SINGLE), Modifier.weight(1f))
                 }
-                if (choice == ScopeChoice.HOMIE) {
-                    others.forEach { homie ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(selected = target == homie, onClick = { target = homie })
-                            Text(homie.name)
-                        }
+                Box(Modifier.padding(start = 48.dp)) {
+                    OutlinedButton(onClick = { menuOpen = true }, modifier = Modifier.fillMaxWidth()) {
+                        Text(selected?.let(::label).orEmpty(), Modifier.weight(1f))
                     }
-                }
-                if (choice == ScopeChoice.OWN_SELECTED) {
-                    others.forEach { homie ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(
-                                checked = homie.userId in selected,
-                                onCheckedChange = {
-                                    selected = if (homie.userId in selected) selected - homie.userId else selected + homie.userId
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        homies.forEach { homie ->
+                            DropdownMenuItem(
+                                text = { Text(label(homie)) },
+                                onClick = {
+                                    selectedId = homie.userId
+                                    single = true
+                                    menuOpen = false
                                 },
                             )
-                            Text(homie.name)
                         }
                     }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    RadioButton(selected = !single, onClick = { single = false })
+                    Text(strings(StringKey.SCOPE_ALL), Modifier.weight(1f))
                 }
             }
         },
         confirmButton = {
             TextButton(
                 onClick = {
-                    val homie = target
-                    val scope = when (choice) {
-                        ScopeChoice.OWN -> ExportScope.Own
-                        ScopeChoice.HOMIE -> homie?.let { ExportScope.ForHomie(it.userId) } ?: ExportScope.Own
-                        ScopeChoice.OWN_SELECTED -> ExportScope.OwnAndSelected(selected)
-                        ScopeChoice.ALL -> ExportScope.All
+                    if (single) {
+                        onExport(ExportScope.Single(selectedId), IcsExporter.fileName(selected?.name))
+                    } else {
+                        onExport(ExportScope.All, IcsExporter.fileName(null))
                     }
-                    onExport(scope, if (choice == ScopeChoice.HOMIE && homie != null) "homie-${homie.name.lowercase().replace(Regex("[^a-z0-9]+"), "-")}" else choice.fileName)
                     onDismiss()
                 },
             ) {

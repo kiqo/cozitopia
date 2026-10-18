@@ -24,21 +24,20 @@ class IcsExporterTest {
         task("nobody", Assignee.Unassigned),
     )
 
-    private fun ids(scope: ExportScope) = IcsExporter.filter(tasks, "me", scope).map { it.id }
+    private fun ids(scope: ExportScope) = IcsExporter.filter(tasks, scope).map { it.id }
 
     @Test
     fun filtersByScope() {
-        assertEquals(listOf("mine", "shared", "everyone", "nobody"), ids(ExportScope.Own))
-        assertEquals(
-            listOf("mine", "shared", "theirs", "everyone", "nobody"),
-            ids(ExportScope.OwnAndSelected(setOf("other"))),
-        )
+        assertEquals(listOf("mine", "shared", "everyone", "nobody"), ids(ExportScope.Single("me")))
+        assertEquals(listOf("shared", "theirs", "everyone", "nobody"), ids(ExportScope.Single("other")))
         assertEquals(tasks.map { it.id }, ids(ExportScope.All))
     }
 
     @Test
-    fun filtersForAnotherHomie() {
-        assertEquals(listOf("shared", "theirs", "everyone", "nobody"), ids(ExportScope.ForHomie("other")))
+    fun buildsSanitisedFileNames() {
+        assertEquals("cozitopia_calendar_all.ics", IcsExporter.fileName(null))
+        assertEquals("cozitopia_calendar_Jürgen_O_Neil.ics", IcsExporter.fileName(" Jürgen O'/Neil "))
+        assertEquals("cozitopia_calendar_all.ics", IcsExporter.fileName("///"))
     }
 
     @Test

@@ -220,7 +220,7 @@ private fun SignedInContent(
                 else -> {
                     val calendarViewModel = viewModel(key = "calendar-$homeId-${membership.home.name}") {
                         CalendarViewModel(
-                            homeId, membership.home.name, user.userId, container.homes, container.tasks, container.errors,
+                            homeId, membership.home.name, container.homes, container.tasks, container.errors,
                         )
                     }
                     CalendarScreen(calendarViewModel, user.userId, modifier)

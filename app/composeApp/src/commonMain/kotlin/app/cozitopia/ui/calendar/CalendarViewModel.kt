@@ -71,7 +71,6 @@ data class CalendarState(
 class CalendarViewModel(
     private val homeId: String,
     private val homeName: String,
-    private val myUserId: String,
     private val homes: HomeRepository,
     private val taskRepository: TaskRepository,
     errors: ErrorBus,
@@ -87,9 +86,9 @@ class CalendarViewModel(
 
     fun filterBy(filter: CalendarFilter) = mutableState.update { it.copy(filter = filter) }
 
-    fun export(scope: ExportScope, scopeName: String) = launchCatching {
-        val tasks = IcsExporter.filter(mutableState.value.tasks, myUserId, scope)
-        exportFile("cozitopia-$scopeName.ics", ICS_MIME_TYPE, IcsExporter.export(tasks, homeName, Clock.System.now()))
+    fun export(scope: ExportScope, fileName: String) = launchCatching {
+        val tasks = IcsExporter.filter(mutableState.value.tasks, scope)
+        exportFile(fileName, ICS_MIME_TYPE, IcsExporter.export(tasks, homeName, Clock.System.now()))
     }
 
     private companion object {
