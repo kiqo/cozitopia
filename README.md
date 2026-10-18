@@ -35,14 +35,23 @@ Then open the printed URL (usually http://localhost:8080).
 
 #### Android
 
-Build the APK (`app/androidApp/build/outputs/apk/debug/`) or install it on an attached device:
+Build the debug APK:
 
 ```
 cd app && ./gradlew :androidApp:assembleDebug
-cd app && ./gradlew :androidApp:installDebug
 ```
 
-After changing the Supabase values, rebuild so they are compiled in.
+The file is `app/androidApp/build/outputs/apk/debug/androidApp-debug.apk`. It is signed with the Android debug key, so it can be installed directly but not published to the Play Store.
+
+Install it on a connected device or emulator, or copy the `.apk` to a phone and open it (allow installing from unknown sources):
+
+```
+adb install -r app/androidApp/build/outputs/apk/debug/androidApp-debug.apk
+```
+
+Or build and install in one step with `cd app && ./gradlew :androidApp:installDebug`.
+
+The Supabase URL and key are compiled into the APK, so set them in `~/.gradle/gradle.properties` before building and rebuild after changing them. Anyone with the APK can read the publishable key, which is fine, but never build with the secret key.
 
 ### SignUp & Login
 
