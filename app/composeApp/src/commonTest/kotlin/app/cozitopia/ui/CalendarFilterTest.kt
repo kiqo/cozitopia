@@ -24,10 +24,10 @@ class CalendarFilterTest {
     )
 
     @Test
-    fun meFilterMatchesTheOwnExportScope() {
+    fun meFilterMatchesTheSingleExportScope() {
         val filtered = tasks.filter(CalendarFilter.Me("me")::matches).map { it.id }
 
-        val exported = IcsExporter.filter(tasks, "me", ExportScope.Own).map { it.id }
+        val exported = IcsExporter.filter(tasks, ExportScope.Single("me")).map { it.id }
 
         assertEquals(listOf("mine", "everyone", "nobody"), filtered)
         assertEquals(exported, filtered)
