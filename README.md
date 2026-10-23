@@ -5,7 +5,7 @@ Cozitopia is an Android app with the vision to turn your home into the one youâ€
 
 ## Cozitopia app
 
-Cozitopia lets homies share a home on Supabase: email/password accounts, homes with admins and homies, invitations, a Happy Home Checklist imported from CSV with proposed assignees and repetitions, and a Homies Calendar with `.ics` export. The UI is available in English, German and French and follows the system language, with an in-app override. The Android app and the web app (Compose Multiplatform, wasmJs) share one code base in `app/`.
+Cozitopia lets homies share a home on Supabase: email/password accounts, homes with admins and homies, invitations, a Happy Home Checklist imported from CSV or `.ics` with proposed assignees and repetitions, and a Homies Calendar with `.ics` export. The UI is available in English, German and French and follows the system language, with an in-app override. The Android app and the web app (Compose Multiplatform, wasmJs) share one code base in `app/`.
 
 ### Setup
 
@@ -61,6 +61,12 @@ Then login with this user and password.
 ### Tests
 
 `cd app && ./gradlew jvmTest`
+
+### Checklist autosave, import and sync
+
+Every change in the checklist is saved to Supabase after a short pause, invalid rows included, and the checklist is reloaded from Supabase whenever the screen opens. "Sync with Calendar" is blocked while any row is invalid; otherwise it saves and offers to open the Homies Calendar. Two homies editing at the same time overwrite each other (last write wins).
+
+"Import tasks" adds the tasks of one `.csv` or `.ics` file. An `.ics` exported from the Homies Calendar is read back including `X-COZITOPIA-ASSIGNEE` (names separated by `;`) and `X-COZITOPIA-FREQUENCY`; an event without UID gets a generated one, and a task whose UID is already in the checklist is skipped and counted. Re-run `supabase/schema.sql` after updating, since tasks now keep stable text ids, allow invalid rows and store `pinned`.
 
 ### Checklist CSV format
 
