@@ -62,7 +62,20 @@ create table if not exists public.tasks (
 );
 
 alter table public.tasks
-    add column if not exists start_time time not null default '10:00';
+    add column if not exists start_time time not null default '10:00',
+    add column if not exists pinned boolean not null default false;
+
+alter table public.tasks
+    alter column recurrence drop not null,
+    alter column next_date drop not null,
+    alter column start_time drop not null,
+    alter column duration_minutes drop not null,
+    alter column id drop default,
+    alter column id type text using id::text,
+    alter column id set default gen_random_uuid()::text;
+
+alter table public.tasks drop constraint if exists tasks_pkey;
+alter table public.tasks add primary key (home_id, id);
 
 create unique index if not exists invitations_pending_unique
     on public.invitations (home_id, email) where status = 'PENDING';
@@ -336,39 +349,65 @@ begin
     if not public.is_member(target_home) then
         raise exception 'NOT_MEMBER';
     end if;
-    delete from public.tasks where home_id = target_home;
     return query
-    insert into public.tasks (
-        home_id, what, location, frequency_text, duration_minutes,
-        assignee_kind, assignee_ids, recurrence, next_date, start_time
+    with incoming as (
+        select
+            coalesce(parsed.id, gen_random_uuid()::text) as id,
+            parsed.what,
+            coalesce(parsed.location, '') as location,
+            coalesce(parsed.frequency_text, '') as frequency_text,
+            parsed.duration_minutes,
+            parsed.assignee_kind,
+            coalesce(
+                (select array_agg(member_id::uuid)
+                 from jsonb_array_elements_text(parsed.assignee_ids) as member_id),
+                '{}'
+            ) as assignee_ids,
+            parsed.recurrence,
+            parsed.next_date,
+            parsed.start_time,
+            coalesce(parsed.pinned, false) as pinned
+        from jsonb_to_recordset(new_tasks) as parsed (
+            id text,
+            what text,
+            location text,
+            frequency_text text,
+            duration_minutes int,
+            assignee_kind text,
+            assignee_ids jsonb,
+            recurrence jsonb,
+            next_date date,
+            start_time time,
+            pinned boolean
+        )
+    ),
+    removed as (
+        delete from public.tasks
+        where home_id = target_home
+            and id not in (select incoming.id from incoming)
+    )
+    insert into public.tasks as saved (
+        home_id, id, what, location, frequency_text, duration_minutes,
+        assignee_kind, assignee_ids, recurrence, next_date, start_time, pinned
     )
     select
-        target_home,
-        incoming.what,
-        coalesce(incoming.location, ''),
-        coalesce(incoming.frequency_text, ''),
-        coalesce(incoming.duration_minutes, 0),
-        incoming.assignee_kind,
-        coalesce(
-            (select array_agg(id::uuid)
-             from jsonb_array_elements_text(incoming.assignee_ids) as id),
-            '{}'
-        ),
-        incoming.recurrence,
-        incoming.next_date,
-        coalesce(incoming.start_time, '10:00')
-    from jsonb_to_recordset(new_tasks) as incoming (
-        what text,
-        location text,
-        frequency_text text,
-        duration_minutes int,
-        assignee_kind text,
-        assignee_ids jsonb,
-        recurrence jsonb,
-        next_date date,
-        start_time time
-    )
-    returning *;
+        target_home, incoming.id, incoming.what, incoming.location,
+        incoming.frequency_text, incoming.duration_minutes, incoming.assignee_kind,
+        incoming.assignee_ids, incoming.recurrence, incoming.next_date,
+        incoming.start_time, incoming.pinned
+    from incoming
+    on conflict (home_id, id) do update set
+        what = excluded.what,
+        location = excluded.location,
+        frequency_text = excluded.frequency_text,
+        duration_minutes = excluded.duration_minutes,
+        assignee_kind = excluded.assignee_kind,
+        assignee_ids = excluded.assignee_ids,
+        recurrence = excluded.recurrence,
+        next_date = excluded.next_date,
+        start_time = excluded.start_time,
+        pinned = excluded.pinned
+    returning saved.*;
 end;
 $$;
 

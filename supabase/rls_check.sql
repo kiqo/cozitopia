@@ -170,6 +170,7 @@ select public.rls_check_login('00000000-0000-0000-0000-00000000000a', 'a@example
 do $$
 declare
     target_home uuid := current_setting('rls_check.home')::uuid;
+    other_home uuid;
 begin
     perform public.rls_check_expect(
         format('update public.home_members set role = %L where user_id = %L',
@@ -195,22 +196,51 @@ begin
     assert (select count(*) from public.tasks) = 2, 'first batch saved';
     assert (select start_time from public.tasks where what = 'First') = '16:00',
         'start_time round-trips';
-    assert (select start_time from public.tasks where what = 'Second') = '10:00',
-        'start_time defaults to 10:00';
+    assert (select start_time from public.tasks where what = 'Second') is null,
+        'missing start_time stays null';
     perform public.save_tasks(
         target_home,
         '[{"what": "Third", "assignee_kind": "UNASSIGNED", "recurrence": {}, "next_date": "2026-10-19"}]'::jsonb
     );
     assert (select count(*) from public.tasks) = 1, 'second batch replaces first';
     assert (select what from public.tasks) = 'Third', 'only second batch remains';
+    perform public.save_tasks(
+        target_home,
+        '[{"id": "keep", "what": "Valid", "assignee_kind": "UNASSIGNED", "duration_minutes": 30,
+           "recurrence": {"unit": "DAY"}, "next_date": "2026-10-19", "start_time": "09:00", "pinned": true},
+          {"id": "broken", "what": "Broken", "assignee_kind": "UNASSIGNED", "duration_minutes": null,
+           "recurrence": null, "next_date": null, "start_time": null}]'::jsonb
+    );
+    assert (select count(*) from public.tasks) = 2, 'invalid rows are saved';
+    assert (select duration_minutes is null and recurrence is null and next_date is null
+                and start_time is null and not pinned
+            from public.tasks where id = 'broken'), 'invalid row keeps nulls';
+    assert (select pinned from public.tasks where id = 'keep'), 'pinned round-trips';
+    perform public.save_tasks(
+        target_home,
+        '[{"id": "keep", "what": "Renamed", "assignee_kind": "UNASSIGNED", "duration_minutes": 30,
+           "recurrence": {"unit": "DAY"}, "next_date": "2026-10-19", "start_time": "09:00"}]'::jsonb
+    );
+    assert (select count(*) from public.tasks) = 1, 'rows missing from the payload are deleted';
+    assert (select what from public.tasks where id = 'keep') = 'Renamed', 'row is updated in place';
+    assert (select not pinned from public.tasks where id = 'keep'), 'pinned can be cleared';
+    other_home := (public.create_home('Other')).id;
+    perform public.save_tasks(
+        other_home,
+        '[{"id": "keep", "what": "Same id elsewhere", "assignee_kind": "UNASSIGNED"}]'::jsonb
+    );
+    assert (select count(*) from public.tasks where id = 'keep') = 2, 'same id may exist in two homes';
+    assert (select what from public.tasks where id = 'keep' and home_id = target_home) = 'Renamed',
+        'other home does not overwrite';
+    perform public.save_tasks(other_home, '[]'::jsonb);
     perform public.save_tasks(target_home, '[]'::jsonb);
     assert (select count(*) from public.tasks) = 0, 'empty array clears tasks';
     update public.home_members set role = 'ADMIN'
-    where user_id = '00000000-0000-0000-0000-00000000000b';
+    where user_id = '00000000-0000-0000-0000-00000000000b' and home_id = target_home;
     update public.home_members set role = 'HOMIE'
-    where user_id = '00000000-0000-0000-0000-00000000000a';
+    where user_id = '00000000-0000-0000-0000-00000000000a' and home_id = target_home;
     assert (select role from public.home_members
-            where user_id = '00000000-0000-0000-0000-00000000000a') = 'HOMIE',
+            where user_id = '00000000-0000-0000-0000-00000000000a' and home_id = target_home) = 'HOMIE',
         'admin can demote when another admin remains';
 end;
 $$;
