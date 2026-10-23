@@ -75,11 +75,14 @@ begin
             '00000000-0000-0000-0000-00000000000a'),
         'new row for relation "profiles" violates check constraint "profiles_preferred_weekday_check"'
     );
-    new_home := public.create_home('   ');
-    assert new_home.name = 'MyHome', 'blank name becomes MyHome';
+    new_home := public.create_home('  Beach House ');
+    assert new_home.name = 'Beach House', 'home name is trimmed';
     perform set_config('rls_check.home', new_home.id::text, true);
-    insert into public.tasks (home_id, what, assignee_kind, recurrence, next_date)
-    values (new_home.id, 'Vacuum', 'UNASSIGNED', '{}'::jsonb, current_date);
+    insert into public.tasks (
+        home_id, what, location, frequency_text, duration_minutes,
+        assignee_kind, assignee_ids, recurrence, next_date, start_time
+    )
+    values (new_home.id, 'Vacuum', '', '', 0, 'UNASSIGNED', '{}', '{}'::jsonb, current_date, '10:00');
     perform public.invite_homie(new_home.id, '  B@Example.test ', 'HOMIE');
     assert (select count(*) from public.invitations) = 1, 'admin sees invitation';
     assert (select count(*) from public.profiles) = 1, 'no shared home yet';
@@ -187,19 +190,19 @@ begin
     );
     perform public.save_tasks(
         target_home,
-        '[{"what": "First", "assignee_kind": "EVERYONE", "recurrence": {}, "next_date": "2026-10-17", "start_time": "16:00"},
-          {"what": "Second", "assignee_kind": "PEOPLE",
-           "assignee_ids": ["00000000-0000-0000-0000-00000000000b"],
-           "recurrence": {}, "next_date": "2026-10-18"}]'::jsonb
+        '[{"what": "First", "location": "Kitchen", "frequency_text": "Weekly", "duration_minutes": 30,
+           "assignee_kind": "EVERYONE", "recurrence": {}, "next_date": "2026-10-17", "start_time": "16:00"},
+          {"what": "Second", "location": "", "frequency_text": "", "duration_minutes": 0,
+           "assignee_kind": "PEOPLE", "assignee_ids": ["00000000-0000-0000-0000-00000000000b"],
+           "recurrence": {}, "next_date": "2026-10-18", "start_time": "10:00"}]'::jsonb
     );
     assert (select count(*) from public.tasks) = 2, 'first batch saved';
     assert (select start_time from public.tasks where what = 'First') = '16:00',
         'start_time round-trips';
-    assert (select start_time from public.tasks where what = 'Second') = '10:00',
-        'start_time defaults to 10:00';
     perform public.save_tasks(
         target_home,
-        '[{"what": "Third", "assignee_kind": "UNASSIGNED", "recurrence": {}, "next_date": "2026-10-19"}]'::jsonb
+        '[{"what": "Third", "location": "", "frequency_text": "", "duration_minutes": 0,
+           "assignee_kind": "UNASSIGNED", "recurrence": {}, "next_date": "2026-10-19", "start_time": "10:00"}]'::jsonb
     );
     assert (select count(*) from public.tasks) = 1, 'second batch replaces first';
     assert (select what from public.tasks) = 'Third', 'only second batch remains';

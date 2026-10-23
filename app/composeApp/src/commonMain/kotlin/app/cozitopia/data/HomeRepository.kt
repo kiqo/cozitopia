@@ -4,6 +4,7 @@ import app.cozitopia.domain.Home
 import app.cozitopia.domain.Homie
 import app.cozitopia.domain.Invitation
 import app.cozitopia.domain.Role
+import app.cozitopia.domain.toHomeName
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
@@ -24,7 +25,7 @@ class HomeRepository(private val client: SupabaseClient) {
             .sortedBy { it.home.name.lowercase() }
 
     suspend fun createHome(name: String): String =
-        client.postgrest.rpc("create_home", buildJsonObject { put("home_name", name) })
+        client.postgrest.rpc("create_home", buildJsonObject { put("home_name", name.toHomeName()) })
             .decodeAs<HomeDto>().id
 
     suspend fun rename(homeId: String, name: String) {
