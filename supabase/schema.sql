@@ -122,8 +122,7 @@ begin
 end;
 $$;
 
-drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created
+create or replace trigger on_auth_user_created
     after insert on auth.users
     for each row execute function public.handle_new_user();
 
@@ -151,8 +150,7 @@ begin
 end;
 $$;
 
-drop trigger if exists ensure_admin_remains on public.home_members;
-create trigger ensure_admin_remains
+create or replace trigger ensure_admin_remains
     before update of role or delete on public.home_members
     for each row execute function public.ensure_admin_remains();
 
