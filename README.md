@@ -12,7 +12,7 @@ Cozitopia lets homies share a home on Supabase: email/password accounts, homes w
 Prerequisites: JDK 17 or newer; for Android also the Android SDK (platform 37) and a device or emulator.
 
 1. Create a Supabase project at https://supabase.com/dashboard.
-2. In its SQL Editor run `supabase/schema.sql`, then optionally `supabase/rls_check.sql` (it rolls back and leaves no data). An empty one-row result means all checks passed.
+2. In the SQL Editor of your project (for the team project: https://supabase.com/dashboard/project/efyetgmgdzowkefbioys/sql/new) run `supabase/schema.sql`, then optionally `supabase/rls_check.sql` (it rolls back and leaves no data). An empty one-row result means all checks passed. Re-run `schema.sql` after every schema change, it is safe to repeat.
 3. For testing, disable "Confirm email" under Authentication > Providers > Email.
 4. Copy the Project URL (without `/rest/v1/`) and the publishable key (`sb_publishable_...`) from Project Settings > API Keys. Never use the secret key. Store them outside the repo in `~/.gradle/gradle.properties`:
 
