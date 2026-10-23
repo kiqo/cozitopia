@@ -56,6 +56,7 @@ import app.cozitopia.ui.assigneeLabel
 import app.cozitopia.ui.today
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
+import io.github.vinceglb.filekit.name
 import io.github.vinceglb.filekit.readString
 
 private val WHAT_WIDTH = 200.dp
@@ -81,8 +82,8 @@ fun ChecklistScreen(viewModel: ChecklistViewModel, onOpenCalendar: () -> Unit, m
     val strings = LocalStrings.current
     val state by viewModel.state.collectAsState()
     LaunchedEffect(viewModel) { viewModel.refresh() }
-    val picker = rememberFilePickerLauncher(type = FileKitType.File("csv")) { file ->
-        file?.let { picked -> viewModel.importCsv { picked.readString() } }
+    val picker = rememberFilePickerLauncher(type = FileKitType.File("csv", "ics")) { file ->
+        file?.let { picked -> viewModel.importFile(picked.name) { picked.readString() } }
     }
 
     Column(
@@ -96,7 +97,16 @@ fun ChecklistScreen(viewModel: ChecklistViewModel, onOpenCalendar: () -> Unit, m
             OutlinedButton(onClick = viewModel::exportChecklist, enabled = state.tasks.isNotEmpty()) {
                 Text(strings(StringKey.EXPORT_CSV))
             }
-            Button(onClick = { picker.launch() }) { Text(strings(StringKey.UPLOAD_CSV)) }
+            Button(onClick = { picker.launch() }, enabled = state.loaded) { Text(strings(StringKey.IMPORT_TASKS)) }
+        }
+        state.importSummary?.let { summary ->
+            Text(
+                strings(
+                    StringKey.IMPORT_SUMMARY,
+                    "imported" to summary.imported.toString(),
+                    "skipped" to summary.skipped.toString(),
+                ),
+            )
         }
         if (state.skippedLines.isNotEmpty()) {
             Text(
@@ -105,36 +115,36 @@ fun ChecklistScreen(viewModel: ChecklistViewModel, onOpenCalendar: () -> Unit, m
             )
         }
         if (state.tasks.isNotEmpty()) {
-            TaskTable(state.tasks, state.homies, state.importCount, viewModel, strings)
+            TaskTable(state.tasks, state.homies, viewModel, strings)
             WorkloadSummaryCard(WorkloadSummary.of(state.tasks, state.homies), strings)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = viewModel::assignAll) { Text(strings(StringKey.ASSIGN_ALL)) }
                 OutlinedButton(onClick = viewModel::refreshDates) { Text(strings(StringKey.REFRESH_DATES)) }
-                Button(onClick = viewModel::finish, enabled = state.canFinish) {
-                    Text(strings(StringKey.FINISH_CHECKLIST))
+                Button(onClick = viewModel::sync, enabled = state.canSync) {
+                    Text(strings(StringKey.SYNC_CALENDAR))
                 }
             }
-            if (!state.canFinish) {
-                Text(text = strings(StringKey.FINISH_BLOCKED), color = MaterialTheme.colorScheme.error)
+            if (!state.canSync) {
+                Text(text = strings(StringKey.SYNC_BLOCKED), color = MaterialTheme.colorScheme.error)
             }
         }
     }
 
-    if (state.finished) {
+    if (state.synced) {
         AlertDialog(
-            onDismissRequest = viewModel::dismissFinished,
+            onDismissRequest = viewModel::dismissSynced,
             text = { Text(strings(StringKey.CHECKLIST_DONE)) },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        viewModel.dismissFinished()
+                        viewModel.dismissSynced()
                         onOpenCalendar()
                     },
                 ) {
                     Text(strings(StringKey.YES))
                 }
             },
-            dismissButton = { TextButton(onClick = viewModel::dismissFinished) { Text(strings(StringKey.NO)) } },
+            dismissButton = { TextButton(onClick = viewModel::dismissSynced) { Text(strings(StringKey.NO)) } },
         )
     }
 }
@@ -143,7 +153,6 @@ fun ChecklistScreen(viewModel: ChecklistViewModel, onOpenCalendar: () -> Unit, m
 private fun TaskTable(
     tasks: List<ChoreTask>,
     homies: List<Homie>,
-    importCount: Int,
     viewModel: ChecklistViewModel,
     strings: Strings,
 ) {
@@ -158,7 +167,7 @@ private fun TaskTable(
             HeaderCell(StringKey.COL_NEXT_DATE, START_WIDTH)
             HeaderCell(StringKey.DELETE, DELETE_WIDTH)
         }
-        tasks.forEach { task -> key(importCount, task.id) { TaskRow(task, homies, viewModel, strings) } }
+        tasks.forEach { task -> key(task.id) { TaskRow(task, homies, viewModel, strings) } }
     }
 }
 

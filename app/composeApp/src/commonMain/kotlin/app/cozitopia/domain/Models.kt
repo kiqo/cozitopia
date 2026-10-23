@@ -85,4 +85,7 @@ data class ChoreTask(
     val startTime: LocalTime? = null,
     @Transient val pinned: Boolean = false,
     @Transient val warnings: Set<TaskWarning> = emptySet(),
-)
+) {
+    val isValid: Boolean
+        get() = recurrence != null && TaskWarning.INVALID_DURATION !in warnings
+}

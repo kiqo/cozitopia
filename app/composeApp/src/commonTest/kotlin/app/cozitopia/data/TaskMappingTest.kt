@@ -5,8 +5,10 @@ import app.cozitopia.domain.ChoreTask
 import app.cozitopia.domain.Ordinal
 import app.cozitopia.domain.Recurrence
 import app.cozitopia.domain.RecurrenceUnit
+import app.cozitopia.domain.TaskWarning
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
@@ -59,6 +61,25 @@ class TaskMappingTest {
         val restored = taskJson.decodeFromString(ListSerializer(TaskDto.serializer()), json).map(TaskDto::toDomain)
 
         assertEquals(tasks, restored)
+    }
+
+    @Test
+    fun roundTripsInvalidRowsThroughNulls() {
+        val invalid = task(0, Assignee.Unassigned, recurrences.first()).copy(
+            durationMinutes = 0,
+            recurrence = null,
+            nextDate = null,
+            startTime = null,
+            pinned = true,
+            warnings = setOf(TaskWarning.INVALID_DURATION, TaskWarning.UNRECOGNIZED_FREQUENCY),
+        )
+
+        val dto = invalid.toDto()
+        val restored = dto.toDomain()
+
+        assertNull(dto.durationMinutes)
+        assertNull(dto.recurrence)
+        assertEquals(invalid, restored)
     }
 
     @Test

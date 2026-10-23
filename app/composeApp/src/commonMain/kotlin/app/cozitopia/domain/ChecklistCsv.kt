@@ -135,7 +135,7 @@ object ChecklistCsv {
         else -> "${task.durationMinutes}min"
     }
 
-    private fun exportAssignee(assignee: Assignee, homies: List<Homie>): String = when (assignee.kind) {
+    fun exportAssignee(assignee: Assignee, homies: List<Homie>): String = when (assignee.kind) {
         AssigneeKind.EVERYONE -> "Everyone"
         AssigneeKind.UNASSIGNED -> "Unassigned"
         AssigneeKind.PEOPLE -> homies.filter { it.userId in assignee.userIds }

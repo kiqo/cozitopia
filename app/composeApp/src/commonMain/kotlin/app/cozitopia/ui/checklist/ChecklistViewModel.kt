@@ -10,24 +10,32 @@ import app.cozitopia.domain.AssigneeKind
 import app.cozitopia.domain.ChecklistCsv
 import app.cozitopia.domain.ChoreTask
 import app.cozitopia.domain.Homie
+import app.cozitopia.domain.IcsImporter
 import app.cozitopia.domain.Recurrence
 import app.cozitopia.domain.TaskPlanner
 import app.cozitopia.domain.TaskWarning
 import app.cozitopia.i18n.StringKey
 import app.cozitopia.ui.ScreenViewModel
 import app.cozitopia.ui.today
-import kotlinx.datetime.LocalDate
-import kotlinx.datetime.LocalTime
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 
 data class ChecklistState(
     val homies: List<Homie> = emptyList(),
     val tasks: List<ChoreTask> = emptyList(),
     val skippedLines: List<Int> = emptyList(),
-    val finished: Boolean = false,
-    val importCount: Int = 0,
+    val synced: Boolean = false,
+    val loaded: Boolean = false,
+    val importSummary: TaskPlanner.ImportSummary? = null,
 ) {
     val assignBlocker: StringKey?
         get() = when {
@@ -37,8 +45,8 @@ data class ChecklistState(
             else -> null
         }
 
-    val canFinish: Boolean
-        get() = tasks.none { it.recurrence == null || TaskWarning.INVALID_DURATION in it.warnings }
+    val canSync: Boolean
+        get() = tasks.all(ChoreTask::isValid)
 }
 
 class ChecklistViewModel(
@@ -50,13 +58,16 @@ class ChecklistViewModel(
     private val mutableState = MutableStateFlow(ChecklistState())
     val state: StateFlow<ChecklistState> = mutableState
 
+    private val saveLock = Mutex()
+    private var autosave: Job? = null
+    private var unsaved = false
+
     fun refresh() = launchCatching {
+        flushUnsaved()
         val homies = homes.members(homeId).map { it.homie }
+        val saved = taskRepository.tasks(homeId)
         mutableState.update {
-            it.copy(
-                homies = homies,
-                tasks = TaskPlanner.schedule(TaskPlanner.withHomies(it.tasks, it.homies, homies), homies, today()),
-            )
+            it.copy(homies = homies, tasks = TaskPlanner.schedule(saved, homies, today()), loaded = true)
         }
     }
 
@@ -69,13 +80,24 @@ class ChecklistViewModel(
         exportFile(EXPORT_FILE_NAME, CSV_MIME_TYPE, ChecklistCsv.export(state.tasks, state.homies))
     }
 
-    fun importCsv(readText: suspend () -> String) = launchCatching {
-        val parsed = ChecklistCsv.parse(readText())
-        mutableState.update {
+    fun importFile(fileName: String, readText: suspend () -> String) = launchCatching {
+        val text = readText()
+        val homies = mutableState.value.homies
+        val skippedLines: List<Int>
+        val imported = if (fileName.endsWith(ICS_EXTENSION, ignoreCase = true)) {
+            skippedLines = emptyList()
+            IcsImporter.parse(text, homies)
+        } else {
+            val parsed = ChecklistCsv.parse(text)
+            skippedLines = parsed.skippedLines
+            TaskPlanner.plan(parsed.rows, homies, today())
+        }
+        change {
+            val merge = TaskPlanner.addNew(it.tasks, imported)
             it.copy(
-                tasks = TaskPlanner.plan(parsed.rows, it.homies, today()),
-                skippedLines = parsed.skippedLines,
-                importCount = it.importCount + 1,
+                tasks = TaskPlanner.schedule(merge.tasks, it.homies, today()),
+                skippedLines = skippedLines,
+                importSummary = merge.summary,
             )
         }
     }
@@ -108,9 +130,7 @@ class ChecklistViewModel(
 
     fun unpin(taskId: String) = edit(taskId) { task, _ -> TaskPlanner.unpinned(task) }
 
-    fun delete(taskId: String) = mutableState.update { state ->
-        state.copy(tasks = TaskPlanner.schedule(state.tasks.filterNot { it.id == taskId }, state.homies, today()))
-    }
+    fun delete(taskId: String) = changeTasks { state -> state.tasks.filterNot { it.id == taskId } }
 
     fun assignAll() {
         val blocker = mutableState.value.assignBlocker
@@ -118,30 +138,54 @@ class ChecklistViewModel(
             errors.report(AppError.Known(blocker))
             return
         }
-        mutableState.update {
-            it.copy(tasks = TaskPlanner.schedule(TaskPlanner.assignEvenly(it.tasks, it.homies), it.homies, today()))
-        }
+        changeTasks { TaskPlanner.assignEvenly(it.tasks, it.homies) }
     }
 
-    fun refreshDates() = mutableState.update {
-        it.copy(tasks = TaskPlanner.schedule(it.tasks, it.homies, today()))
+    fun refreshDates() = changeTasks { it.tasks }
+
+    fun sync() = launchCatching {
+        if (!mutableState.value.canSync) return@launchCatching
+        flushUnsaved()
+        mutableState.update { it.copy(synced = true) }
     }
 
-    fun finish() = launchCatching {
-        if (!mutableState.value.canFinish) return@launchCatching
-        taskRepository.saveChecklist(homeId, mutableState.value.tasks)
-        mutableState.update { it.copy(finished = true) }
-    }
-
-    fun dismissFinished() = mutableState.update { it.copy(finished = false) }
+    fun dismissSynced() = mutableState.update { it.copy(synced = false) }
 
     private fun edit(taskId: String, transform: (ChoreTask, List<Homie>) -> ChoreTask) =
-        mutableState.update { state ->
-            val edited = state.tasks.map { if (it.id == taskId) transform(it, state.homies) else it }
-            state.copy(tasks = TaskPlanner.schedule(edited, state.homies, today()))
+        changeTasks { state -> state.tasks.map { if (it.id == taskId) transform(it, state.homies) else it } }
+
+    private fun changeTasks(transform: (ChecklistState) -> List<ChoreTask>) =
+        change { it.copy(tasks = TaskPlanner.schedule(transform(it), it.homies, today())) }
+
+    private fun change(transform: (ChecklistState) -> ChecklistState) {
+        mutableState.update(transform)
+        unsaved = true
+        autosave?.cancel()
+        autosave = launchCatching {
+            delay(AUTOSAVE_DELAY_MS)
+            withContext(NonCancellable) { persist() }
         }
+    }
+
+    private suspend fun flushUnsaved() {
+        autosave?.cancel()
+        persist()
+    }
+
+    private suspend fun persist() = saveLock.withLock {
+        if (!unsaved) return@withLock
+        unsaved = false
+        try {
+            taskRepository.saveChecklist(homeId, mutableState.value.tasks)
+        } catch (failure: Exception) {
+            unsaved = true
+            throw failure
+        }
+    }
 
     private companion object {
+        const val AUTOSAVE_DELAY_MS = 500L
+        const val ICS_EXTENSION = ".ics"
         const val EXPORT_FILE_NAME = "happy-home-checklist.csv"
         const val TEMPLATE_FILE_NAME = "cozitopia-template.csv"
         const val CSV_MIME_TYPE = "text/csv"

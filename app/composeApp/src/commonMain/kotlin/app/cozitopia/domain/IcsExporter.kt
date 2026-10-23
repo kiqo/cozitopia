@@ -20,6 +20,7 @@ sealed interface ExportScope {
 object IcsExporter {
     private const val MAX_OCTETS = 75
     private const val CRLF = "\r\n"
+    const val UID_SUFFIX = "@cozitopia.app"
 
     fun fileName(homieName: String?): String {
         val suffix = homieName
@@ -38,7 +39,12 @@ object IcsExporter {
             is ExportScope.Single -> tasks.filter { isOwn(it, scope.userId) }
         }
 
-    fun export(tasks: List<ChoreTask>, homeName: String, generatedAt: Instant): String = buildString {
+    fun export(
+        tasks: List<ChoreTask>,
+        homeName: String,
+        homies: List<Homie>,
+        generatedAt: Instant,
+    ): String = buildString {
         val stamp = generatedAt.toLocalDateTime(TimeZone.UTC)
         val dtstamp = "${stamp.date.basic()}T${stamp.hour.pad()}${stamp.minute.pad()}${stamp.second.pad()}Z"
         line("BEGIN:VCALENDAR")
@@ -49,7 +55,7 @@ object IcsExporter {
             val start = task.nextDate ?: return@forEach
             val recurrence = task.recurrence ?: return@forEach
             line("BEGIN:VEVENT")
-            line("UID:${task.id}@cozitopia.app")
+            line("UID:${task.id}$UID_SUFFIX")
             line("DTSTAMP:$dtstamp")
             val time = task.startTime?.takeIf { task.durationMinutes > 0 }
             if (time == null) {
@@ -64,6 +70,8 @@ object IcsExporter {
             line("LOCATION:${escape(task.where)}")
             line("DESCRIPTION:${escape("${task.durationMinutes} min")}")
             line("RRULE:${Schedule.rrule(recurrence)}")
+            line("X-COZITOPIA-ASSIGNEE:${escape(ChecklistCsv.exportAssignee(task.assignee, homies))}")
+            line("X-COZITOPIA-FREQUENCY:${escape(task.frequencyText)}")
             line("END:VEVENT")
         }
         line("END:VCALENDAR")

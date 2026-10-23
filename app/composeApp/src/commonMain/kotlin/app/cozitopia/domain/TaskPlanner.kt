@@ -1,5 +1,6 @@
 package app.cozitopia.domain
 
+import kotlin.uuid.Uuid
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
@@ -16,11 +17,15 @@ object TaskPlanner {
 
     private data class Placement(val date: LocalDate, val start: LocalTime, val exceedsDay: Boolean)
 
+    data class ImportSummary(val imported: Int, val skipped: Int)
+
+    data class ImportMerge(val tasks: List<ChoreTask>, val summary: ImportSummary)
+
     private data class DayKey(val start: LocalTime, val end: LocalTime, val date: LocalDate)
 
     fun plan(rows: List<CsvRow>, homies: List<Homie>, today: LocalDate): List<ChoreTask> =
         schedule(
-            rows.mapIndexed { index, row ->
+            rows.map { row ->
                 val resolution = ChecklistCsv.resolveAssignee(row.assigneeNames, homies)
                 val recurrence = if (row.repetitionText.isBlank()) {
                     Schedule.propose(row.frequencyText, windowFor(resolution.assignee, homies).weekday)
@@ -30,7 +35,7 @@ object TaskPlanner {
                 val start = ChecklistCsv.parseStart(row.nextStartText)
                 val pinned = recurrence != null && start != null && !row.pinnedText.equals("false", ignoreCase = true)
                 ChoreTask(
-                    id = "task-$index",
+                    id = Uuid.random().toString(),
                     what = row.what,
                     where = row.where,
                     frequencyText = row.frequencyText,
@@ -51,6 +56,12 @@ object TaskPlanner {
             homies,
             today,
         )
+
+    fun addNew(existing: List<ChoreTask>, imported: List<ChoreTask>): ImportMerge {
+        val knownIds = existing.mapTo(mutableSetOf()) { it.id }
+        val added = imported.filter { knownIds.add(it.id) }
+        return ImportMerge(existing + added, ImportSummary(added.size, imported.size - added.size))
+    }
 
     fun windowFor(assignee: Assignee, homies: List<Homie>): DayWindow =
         assignee.userIds.singleOrNull()

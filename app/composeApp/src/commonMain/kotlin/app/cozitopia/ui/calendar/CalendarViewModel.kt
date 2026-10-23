@@ -79,7 +79,7 @@ class CalendarViewModel(
     val state: StateFlow<CalendarState> = mutableState
 
     fun refresh() = launchCatching {
-        val tasks = taskRepository.tasks(homeId)
+        val tasks = taskRepository.tasks(homeId).filter(ChoreTask::isValid)
         val homies = homes.members(homeId).map { it.homie }
         mutableState.update { it.copy(tasks = tasks, homies = homies) }
     }
@@ -87,8 +87,9 @@ class CalendarViewModel(
     fun filterBy(filter: CalendarFilter) = mutableState.update { it.copy(filter = filter) }
 
     fun export(scope: ExportScope, fileName: String) = launchCatching {
-        val tasks = IcsExporter.filter(mutableState.value.tasks, scope)
-        exportFile(fileName, ICS_MIME_TYPE, IcsExporter.export(tasks, homeName, Clock.System.now()))
+        val state = mutableState.value
+        val tasks = IcsExporter.filter(state.tasks, scope)
+        exportFile(fileName, ICS_MIME_TYPE, IcsExporter.export(tasks, homeName, state.homies, Clock.System.now()))
     }
 
     private companion object {

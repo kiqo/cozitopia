@@ -42,7 +42,7 @@ class IcsExporterTest {
 
     @Test
     fun exportsCalendarWithCrlfAndRecurrence() {
-        val ics = IcsExporter.export(listOf(task("t1", Assignee.Everyone, "Clean", "Kitchen")), "MyHome", generatedAt)
+        val ics = IcsExporter.export(listOf(task("t1", Assignee.Everyone, "Clean", "Kitchen")), "MyHome", emptyList(), generatedAt)
 
         val lines = ics.split("\r\n")
 
@@ -59,7 +59,7 @@ class IcsExporterTest {
 
     @Test
     fun escapesSpecialCharacters() {
-        val ics = IcsExporter.export(listOf(task("t", Assignee.Everyone, "a;b,c\\d\ne\r\nf")), "Home, Sweet", generatedAt)
+        val ics = IcsExporter.export(listOf(task("t", Assignee.Everyone, "a;b,c\\d\ne\r\nf")), "Home, Sweet", emptyList(), generatedAt)
 
         assertTrue("SUMMARY:a\\;b\\,c\\\\d\\ne\\nf" in ics.split("\r\n"))
         assertTrue("X-WR-CALNAME:Home\\, Sweet" in ics.split("\r\n"))
@@ -69,7 +69,7 @@ class IcsExporterTest {
     fun foldsLongLinesWithoutSplittingMultibyteCharacters() {
         val what = "ä".repeat(60) + "😀".repeat(20) + "x".repeat(200)
 
-        val ics = IcsExporter.export(listOf(task("t", Assignee.Everyone, what)), "Home", generatedAt)
+        val ics = IcsExporter.export(listOf(task("t", Assignee.Everyone, what)), "Home", emptyList(), generatedAt)
 
         val physical = ics.split("\r\n").filter { it.isNotEmpty() }
         val unfolded = ics.replace("\r\n ", "")
@@ -83,7 +83,7 @@ class IcsExporterTest {
         val timed = task("timed", Assignee.Everyone).copy(startTime = LocalTime(23, 30), durationMinutes = 90)
         val untimed = task("zero", Assignee.Everyone).copy(startTime = LocalTime(10, 0), durationMinutes = 0)
 
-        val ics = IcsExporter.export(listOf(timed, untimed), "MyHome", generatedAt)
+        val ics = IcsExporter.export(listOf(timed, untimed), "MyHome", emptyList(), generatedAt)
 
         assertTrue(ics.contains("DTSTART:20261017T233000\r\n"))
         assertTrue(ics.contains("DTEND:20261018T010000\r\n"))

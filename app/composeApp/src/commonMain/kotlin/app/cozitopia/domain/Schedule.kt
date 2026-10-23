@@ -17,6 +17,15 @@ object Schedule {
         RegexOption.IGNORE_CASE,
     )
     private val SPECIFIC_DATE = Regex("""(\d{1,2})\.(\d{1,2})\.?""")
+    private val RRULE_DAY = Regex("""^(-?\d)?(MO|TU|WE|TH|FR|SA|SU)$""")
+    private val ORDINAL_CODES = mapOf(
+        "1" to Ordinal.FIRST,
+        "2" to Ordinal.SECOND,
+        "3" to Ordinal.THIRD,
+        "4" to Ordinal.FOURTH,
+        "-1" to Ordinal.LAST,
+    )
+    private const val MAX_DAY_OF_MONTH = 31
     private const val DAYS_PER_YEAR = 365
     private const val DAYS_PER_MONTH = 30
     private const val DAYS_PER_WEEK = 7
@@ -145,6 +154,31 @@ object Schedule {
             RecurrenceUnit.MONTH -> "FREQ=MONTHLY;INTERVAL=$interval;${monthlyRule(recurrence)}"
             RecurrenceUnit.YEAR ->
                 "FREQ=YEARLY;INTERVAL=$interval;BYMONTH=${recurrence.month ?: 1};${monthlyRule(recurrence)}"
+        }
+    }
+
+    fun parseRrule(rule: String): Recurrence? {
+        val parts = rule.split(';').associate { it.substringBefore('=').uppercase() to it.substringAfter('=', "") }
+        val unit = when (parts["FREQ"]?.uppercase()) {
+            "DAILY" -> RecurrenceUnit.DAY
+            "WEEKLY" -> RecurrenceUnit.WEEK
+            "MONTHLY" -> RecurrenceUnit.MONTH
+            "YEARLY" -> RecurrenceUnit.YEAR
+            else -> return null
+        }
+        val interval = parts["INTERVAL"]?.let { it.toIntOrNull()?.takeIf { value -> value > 0 } ?: return null } ?: 1
+        val byDay = parts["BYDAY"]?.let { RRULE_DAY.matchEntire(it) ?: return null }
+        val weekday = byDay?.let { match -> DayOfWeek.entries.first { it.ical() == match.groupValues[2] } }
+        val ordinal = byDay?.groupValues?.get(1)?.takeIf { it.isNotEmpty() }?.let { ORDINAL_CODES[it] ?: return null }
+        val month = parts["BYMONTH"]?.let { it.toIntOrNull()?.takeIf { value -> value in 1..MONTHS_PER_YEAR } ?: return null }
+        val dayOfMonth = parts["BYMONTHDAY"]?.let { it.toIntOrNull()?.takeIf { value -> value in 1..MAX_DAY_OF_MONTH } ?: return null }
+        val yearMonth = month.takeIf { unit == RecurrenceUnit.YEAR }
+        return when {
+            unit == RecurrenceUnit.DAY -> Recurrence(unit, interval)
+            unit == RecurrenceUnit.WEEK -> Recurrence(unit, interval, weekday)
+            weekday != null && ordinal != null -> Recurrence(unit, interval, weekday, ordinal, yearMonth)
+            dayOfMonth != null -> Recurrence(unit, interval, month = yearMonth, dayOfMonth = dayOfMonth)
+            else -> null
         }
     }
 

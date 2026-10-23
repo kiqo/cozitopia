@@ -2,6 +2,7 @@ package app.cozitopia.data
 
 import app.cozitopia.domain.Assignee
 import app.cozitopia.domain.ChoreTask
+import app.cozitopia.domain.TaskWarning
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -16,12 +17,13 @@ fun ChoreTask.toDto(): TaskDto = TaskDto(
     what = what,
     location = where,
     frequencyText = frequencyText,
-    durationMinutes = durationMinutes,
+    durationMinutes = durationMinutes.takeUnless { TaskWarning.INVALID_DURATION in warnings },
     assigneeKind = assignee.kind,
     assigneeIds = assignee.userIds.toList(),
-    recurrence = requireNotNull(recurrence) { "task $id has no recurrence" },
-    nextDate = requireNotNull(nextDate) { "task $id has no next date" },
-    startTime = requireNotNull(startTime) { "task $id has no start time" },
+    recurrence = recurrence,
+    nextDate = nextDate,
+    startTime = startTime,
+    pinned = pinned,
 )
 
 fun TaskDto.toDomain(): ChoreTask = ChoreTask(
@@ -29,11 +31,16 @@ fun TaskDto.toDomain(): ChoreTask = ChoreTask(
     what = what,
     where = location,
     frequencyText = frequencyText,
-    durationMinutes = durationMinutes,
+    durationMinutes = durationMinutes ?: 0,
     assignee = Assignee(assigneeKind, assigneeIds.toSet()),
     recurrence = recurrence,
     nextDate = nextDate,
     startTime = startTime,
+    pinned = pinned,
+    warnings = buildSet {
+        if (durationMinutes == null) add(TaskWarning.INVALID_DURATION)
+        if (recurrence == null) add(TaskWarning.UNRECOGNIZED_FREQUENCY)
+    },
 )
 
 fun List<ChoreTask>.toJson(): JsonElement =

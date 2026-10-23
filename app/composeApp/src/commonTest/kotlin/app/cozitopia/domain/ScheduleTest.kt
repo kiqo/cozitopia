@@ -145,6 +145,29 @@ class ScheduleTest {
     }
 
     @Test
+    fun parsesRecurrenceRulesAsTheInverseOfBuilding() {
+        val recurrences = listOf(
+            Recurrence(RecurrenceUnit.DAY, 3),
+            Recurrence(RecurrenceUnit.WEEK, 2, sunday),
+            Recurrence(RecurrenceUnit.MONTH, 1, sunday, Ordinal.LAST),
+            Recurrence(RecurrenceUnit.MONTH, 2, dayOfMonth = 5),
+            Recurrence(RecurrenceUnit.YEAR, 1, DayOfWeek.FRIDAY, Ordinal.SECOND, month = 4),
+            Recurrence(RecurrenceUnit.YEAR, 1, month = 8, dayOfMonth = 2),
+        )
+
+        val parsed = recurrences.map { Schedule.parseRrule(Schedule.rrule(it)) }
+
+        assertEquals(recurrences, parsed)
+    }
+
+    @Test
+    fun rejectsUnsupportedRecurrenceRules() {
+        val rules = listOf("FREQ=HOURLY", "FREQ=DAILY;INTERVAL=0", "FREQ=YEARLY;BYMONTH=13;BYMONTHDAY=1", "FREQ=MONTHLY", "")
+
+        rules.forEach { assertNull(Schedule.parseRrule(it), it) }
+    }
+
+    @Test
     fun nextDateFollowsTheSameSeriesAsAdvance() {
         val recurrence = Recurrence(RecurrenceUnit.MONTH, 5, sunday, Ordinal.FIRST, month = 1)
 
