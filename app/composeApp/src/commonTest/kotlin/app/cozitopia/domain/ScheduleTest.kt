@@ -137,6 +137,7 @@ class ScheduleTest {
             Recurrence(RecurrenceUnit.WEEK, 2, sunday) to "FREQ=WEEKLY;INTERVAL=2;BYDAY=SU",
             Recurrence(RecurrenceUnit.MONTH, 1, sunday, Ordinal.FIRST) to "FREQ=MONTHLY;INTERVAL=1;BYDAY=1SU",
             Recurrence(RecurrenceUnit.MONTH, 1, sunday, Ordinal.LAST) to "FREQ=MONTHLY;INTERVAL=1;BYDAY=-1SU",
+            Recurrence(RecurrenceUnit.MONTH, 2, dayOfMonth = 5, month = 2) to "FREQ=MONTHLY;INTERVAL=2;BYMONTHDAY=5;BYMONTH=2",
             Recurrence(RecurrenceUnit.YEAR, 1, month = 8, dayOfMonth = 2) to
                 "FREQ=YEARLY;INTERVAL=1;BYMONTH=8;BYMONTHDAY=2",
         )
@@ -151,6 +152,8 @@ class ScheduleTest {
             Recurrence(RecurrenceUnit.WEEK, 2, sunday),
             Recurrence(RecurrenceUnit.MONTH, 1, sunday, Ordinal.LAST),
             Recurrence(RecurrenceUnit.MONTH, 2, dayOfMonth = 5),
+            Recurrence(RecurrenceUnit.MONTH, 2, dayOfMonth = 5, month = 2),
+            Recurrence(RecurrenceUnit.MONTH, 1, sunday, Ordinal.FIRST, month = 3),
             Recurrence(RecurrenceUnit.YEAR, 1, DayOfWeek.FRIDAY, Ordinal.SECOND, month = 4),
             Recurrence(RecurrenceUnit.YEAR, 1, month = 8, dayOfMonth = 2),
         )

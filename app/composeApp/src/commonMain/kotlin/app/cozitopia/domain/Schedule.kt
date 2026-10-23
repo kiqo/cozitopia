@@ -151,7 +151,8 @@ object Schedule {
             RecurrenceUnit.DAY -> "FREQ=DAILY;INTERVAL=$interval"
             RecurrenceUnit.WEEK ->
                 "FREQ=WEEKLY;INTERVAL=$interval;BYDAY=${(recurrence.weekday ?: DEFAULT_WEEKDAY).ical()}"
-            RecurrenceUnit.MONTH -> "FREQ=MONTHLY;INTERVAL=$interval;${monthlyRule(recurrence)}"
+            RecurrenceUnit.MONTH -> "FREQ=MONTHLY;INTERVAL=$interval;${monthlyRule(recurrence)}" +
+                (recurrence.month?.let { ";BYMONTH=$it" }.orEmpty())
             RecurrenceUnit.YEAR ->
                 "FREQ=YEARLY;INTERVAL=$interval;BYMONTH=${recurrence.month ?: 1};${monthlyRule(recurrence)}"
         }
@@ -172,12 +173,12 @@ object Schedule {
         val ordinal = byDay?.groupValues?.get(1)?.takeIf { it.isNotEmpty() }?.let { ORDINAL_CODES[it] ?: return null }
         val month = parts["BYMONTH"]?.let { it.toIntOrNull()?.takeIf { value -> value in 1..MONTHS_PER_YEAR } ?: return null }
         val dayOfMonth = parts["BYMONTHDAY"]?.let { it.toIntOrNull()?.takeIf { value -> value in 1..MAX_DAY_OF_MONTH } ?: return null }
-        val yearMonth = month.takeIf { unit == RecurrenceUnit.YEAR }
+        val anchorMonth = month.takeIf { unit == RecurrenceUnit.YEAR || unit == RecurrenceUnit.MONTH }
         return when {
             unit == RecurrenceUnit.DAY -> Recurrence(unit, interval)
             unit == RecurrenceUnit.WEEK -> Recurrence(unit, interval, weekday)
-            weekday != null && ordinal != null -> Recurrence(unit, interval, weekday, ordinal, yearMonth)
-            dayOfMonth != null -> Recurrence(unit, interval, month = yearMonth, dayOfMonth = dayOfMonth)
+            weekday != null && ordinal != null -> Recurrence(unit, interval, weekday, ordinal, anchorMonth)
+            dayOfMonth != null -> Recurrence(unit, interval, month = anchorMonth, dayOfMonth = dayOfMonth)
             else -> null
         }
     }
