@@ -3,7 +3,7 @@ create extension if not exists pgcrypto;
 create table if not exists public.profiles (
     id uuid primary key references auth.users on delete cascade,
     email text not null,
-    display_name text not null default ''
+    display_name text not null
 );
 
 alter table public.profiles
@@ -22,7 +22,7 @@ on conflict (id) do nothing;
 
 create table if not exists public.homes (
     id uuid primary key default gen_random_uuid(),
-    name text not null default 'MyHome',
+    name text not null,
     created_by uuid not null default auth.uid() references auth.users,
     created_at timestamptz not null default now()
 );
@@ -50,19 +50,28 @@ create table if not exists public.tasks (
     id uuid primary key default gen_random_uuid(),
     home_id uuid not null references public.homes on delete cascade,
     what text not null,
-    location text not null default '',
-    frequency_text text not null default '',
-    duration_minutes int not null default 0 check (duration_minutes >= 0),
+    location text not null,
+    frequency_text text not null,
+    duration_minutes int not null check (duration_minutes >= 0),
     assignee_kind text not null
         check (assignee_kind in ('EVERYONE', 'UNASSIGNED', 'PEOPLE')),
-    assignee_ids uuid[] not null default '{}',
+    assignee_ids uuid[] not null,
     recurrence jsonb not null,
     next_date date not null,
     created_at timestamptz not null default now()
 );
 
 alter table public.tasks
-    add column if not exists start_time time not null default '10:00';
+    add column if not exists start_time time not null;
+
+alter table public.profiles alter column display_name drop default;
+alter table public.homes alter column name drop default;
+alter table public.tasks
+    alter column location drop default,
+    alter column frequency_text drop default,
+    alter column duration_minutes drop default,
+    alter column assignee_ids drop default,
+    alter column start_time drop default;
 
 create unique index if not exists invitations_pending_unique
     on public.invitations (home_id, email) where status = 'PENDING';
@@ -222,7 +231,8 @@ create policy tasks_all on public.tasks for all to authenticated
     using (public.is_member(home_id))
     with check (public.is_member(home_id));
 
-create or replace function public.create_home(home_name text default 'MyHome')
+drop function if exists public.create_home(text);
+create function public.create_home(home_name text)
 returns public.homes
 language plpgsql
 security definer
@@ -232,7 +242,7 @@ declare
     new_home public.homes;
 begin
     insert into public.homes (name)
-    values (coalesce(nullif(trim(home_name), ''), 'MyHome'))
+    values (trim(home_name))
     returning * into new_home;
     insert into public.home_members (home_id, user_id, role)
     values (new_home.id, auth.uid(), 'ADMIN');
@@ -345,9 +355,9 @@ begin
     select
         target_home,
         incoming.what,
-        coalesce(incoming.location, ''),
-        coalesce(incoming.frequency_text, ''),
-        coalesce(incoming.duration_minutes, 0),
+        incoming.location,
+        incoming.frequency_text,
+        incoming.duration_minutes,
         incoming.assignee_kind,
         coalesce(
             (select array_agg(id::uuid)
@@ -356,7 +366,7 @@ begin
         ),
         incoming.recurrence,
         incoming.next_date,
-        coalesce(incoming.start_time, '10:00')
+        incoming.start_time
     from jsonb_to_recordset(new_tasks) as incoming (
         what text,
         location text,

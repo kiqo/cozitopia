@@ -16,6 +16,10 @@ enum class AssigneeKind { EVERYONE, UNASSIGNED, PEOPLE }
 
 enum class TaskWarning { UNKNOWN_ASSIGNEE, INVALID_DURATION, UNRECOGNIZED_FREQUENCY, EXCEEDS_DAY, INVALID_START }
 
+const val DEFAULT_HOME_NAME = "MyHome"
+
+fun String.toHomeName(): String = trim().ifBlank { DEFAULT_HOME_NAME }
+
 @Serializable
 data class DayWindow(
     val weekday: DayOfWeek = DayOfWeek.SUNDAY,

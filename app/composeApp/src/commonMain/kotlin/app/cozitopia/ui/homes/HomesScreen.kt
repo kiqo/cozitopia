@@ -23,12 +23,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import app.cozitopia.domain.DEFAULT_HOME_NAME
 import app.cozitopia.domain.Role
 import app.cozitopia.i18n.LocalStrings
 import app.cozitopia.i18n.StringKey
 import app.cozitopia.i18n.key
-
-private const val DEFAULT_HOME_NAME = "MyHome"
 
 @Composable
 fun HomesScreen(viewModel: HomesViewModel, modifier: Modifier = Modifier) {
