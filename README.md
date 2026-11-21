@@ -5,7 +5,7 @@ Cozitopia is an Android app with the vision to turn your home into the one youâ€
 
 ## Cozitopia app
 
-Cozitopia lets homies share a home on Supabase: email/password accounts, homes with admins and homies, invitations, a Happy Home Checklist imported from CSV with proposed assignees and repetitions, and a Homies Calendar with `.ics` export. The UI is available in English, German and French and follows the system language, with an in-app override. The Android app and the web app (Compose Multiplatform, wasmJs) share one code base in `app/`.
+Cozitopia lets homies share a home on Supabase: email/password accounts, homes with admins and homies, invitations, a Happy Home Checklist imported from CSV with proposed assignees and repetitions, and a Homies Calendar with `.ics` export. The UI is available in English, German and French and follows the system language, with an in-app override. The layout follows `app/design/UI_REDESIGN_BRIEF.md`: a sidebar on wide screens (840dp and more), a top bar with bottom navigation on phones, and Material 3 tokens in `ui/Theme.kt`. The Android app and the web app (Compose Multiplatform, wasmJs) share one code base in `app/`.
 
 ### Setup
 

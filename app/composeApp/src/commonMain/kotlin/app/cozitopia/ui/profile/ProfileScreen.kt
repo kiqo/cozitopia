@@ -2,12 +2,9 @@ package app.cozitopia.ui.profile
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -19,54 +16,98 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.cozitopia.i18n.LocalStrings
 import app.cozitopia.i18n.StringKey
-import app.cozitopia.ui.CozyBanner
 import app.cozitopia.i18n.key
-import app.cozitopia.ui.DropdownSelect
+import app.cozitopia.ui.FieldLabel
+import app.cozitopia.ui.HintText
+import app.cozitopia.ui.LabeledTextField
+import app.cozitopia.ui.LocalWideLayout
+import app.cozitopia.ui.PageHeader
+import app.cozitopia.ui.PrimaryButton
+import app.cozitopia.ui.ScreenColumn
+import app.cozitopia.ui.SectionCard
+import app.cozitopia.ui.SelectField
+import app.cozitopia.ui.TertiaryButton
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalTime
 
 private val HALF_HOURS = (0 until 48).map { LocalTime(it / 2, it % 2 * 30) }
 
 @Composable
-fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier) {
+fun ProfileScreen(viewModel: ProfileViewModel, email: String, onSignOut: () -> Unit) {
     val strings = LocalStrings.current
     val saved by viewModel.displayName.collectAsState()
     val window by viewModel.window.collectAsState()
     var displayName by remember(saved) { mutableStateOf(saved) }
+    val wide = LocalWideLayout.current
 
-    Column(modifier = modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        CozyBanner()
-        Text(text = strings(StringKey.PROFILE_TITLE), style = MaterialTheme.typography.titleLarge)
-        OutlinedTextField(
-            value = displayName,
-            onValueChange = { displayName = it },
-            label = { Text(strings(StringKey.DISPLAY_NAME)) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Button(onClick = { viewModel.save(displayName) }, enabled = displayName.isNotBlank()) {
-            Text(strings(StringKey.SAVE))
+    val forms: @Composable (Modifier) -> Unit = { modifier ->
+        Column(modifier, verticalArrangement = Arrangement.spacedBy(24.dp)) {
+            SectionCard(Modifier.fillMaxWidth()) {
+                Text(strings(StringKey.PERSONAL_DETAILS), style = MaterialTheme.typography.headlineSmall)
+                LabeledTextField(strings(StringKey.DISPLAY_NAME), displayName, { displayName = it })
+                Column {
+                    FieldLabel(strings(StringKey.EMAIL))
+                    Text(email, style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+            SectionCard(Modifier.fillMaxWidth()) {
+                Text(strings(StringKey.CHORE_TIME), style = MaterialTheme.typography.headlineSmall)
+                SelectField(
+                    label = strings(StringKey.PREFERRED_WEEKDAY),
+                    selected = strings(window.weekday.key()),
+                    options = DayOfWeek.entries,
+                    optionLabel = { strings(it.key()) },
+                    onSelect = { viewModel.setWindow(window.copy(weekday = it)) },
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                    SelectField(
+                        label = strings(StringKey.PREFERRED_START),
+                        selected = window.start.toString(),
+                        options = HALF_HOURS,
+                        optionLabel = { it.toString() },
+                        onSelect = { viewModel.setWindow(window.copy(start = it)) },
+                        modifier = Modifier.weight(1f),
+                    )
+                    SelectField(
+                        label = strings(StringKey.LATEST_END),
+                        selected = window.end.toString(),
+                        options = HALF_HOURS,
+                        optionLabel = { it.toString() },
+                        onSelect = { viewModel.setWindow(window.copy(end = it)) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
         }
-        Text(text = strings(StringKey.PREFERRED_WEEKDAY), style = MaterialTheme.typography.labelLarge)
-        DropdownSelect(
-            selected = strings(window.weekday.key()),
-            options = DayOfWeek.entries,
-            optionLabel = { strings(it.key()) },
-            onSelect = { viewModel.setWindow(window.copy(weekday = it)) },
-        )
-        Text(text = strings(StringKey.PREFERRED_START), style = MaterialTheme.typography.labelLarge)
-        DropdownSelect(
-            selected = window.start.toString(),
-            options = HALF_HOURS,
-            optionLabel = { it.toString() },
-            onSelect = { viewModel.setWindow(window.copy(start = it)) },
-        )
-        Text(text = strings(StringKey.LATEST_END), style = MaterialTheme.typography.labelLarge)
-        DropdownSelect(
-            selected = window.end.toString(),
-            options = HALF_HOURS,
-            optionLabel = { it.toString() },
-            onSelect = { viewModel.setWindow(window.copy(end = it)) },
-        )
+    }
+    val aside: @Composable (Modifier) -> Unit = { modifier ->
+        Column(modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            SectionCard(Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.secondaryContainer, bordered = false) {
+                Text(strings(StringKey.RHYTHM_TITLE), style = MaterialTheme.typography.headlineSmall)
+                Text(strings(StringKey.RHYTHM_BODY), style = MaterialTheme.typography.bodyMedium)
+            }
+            HintText(strings(StringKey.HALF_HOUR_NOTE))
+            TertiaryButton(strings(StringKey.LOG_OUT), onSignOut)
+        }
+    }
+
+    ScreenColumn {
+        PageHeader(strings(StringKey.PROFILE_TITLE), strings(StringKey.SUBTITLE_PROFILE)) { modifier ->
+            PrimaryButton(
+                text = strings(StringKey.SAVE_CHANGES),
+                onClick = { viewModel.save(displayName) },
+                enabled = displayName.isNotBlank() && displayName.trim() != saved,
+                modifier = modifier,
+            )
+        }
+        if (wide) {
+            Row(horizontalArrangement = Arrangement.spacedBy(32.dp)) {
+                forms(Modifier.weight(1.6f))
+                aside(Modifier.weight(1f))
+            }
+        } else {
+            forms(Modifier.fillMaxWidth())
+            aside(Modifier.fillMaxWidth())
+        }
     }
 }

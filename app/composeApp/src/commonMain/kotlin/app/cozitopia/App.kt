@@ -1,26 +1,14 @@
 package app.cozitopia
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.outlined.Cottage
+import androidx.compose.material.icons.outlined.SettingsSuggest
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -34,7 +22,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.cozitopia.data.AppContainer
 import app.cozitopia.data.AuthState
@@ -44,9 +31,16 @@ import app.cozitopia.i18n.LocalStrings
 import app.cozitopia.i18n.StringKey
 import app.cozitopia.i18n.Strings
 import app.cozitopia.i18n.systemLanguageTag
+import app.cozitopia.ui.AdaptiveLayout
 import app.cozitopia.ui.CozitopiaTheme
-import app.cozitopia.ui.DropdownSelect
+import app.cozitopia.ui.CozyShell
+import app.cozitopia.ui.CozySnackbarHost
+import app.cozitopia.ui.CozySnackbarVisuals
+import app.cozitopia.ui.EmptyState
+import app.cozitopia.ui.ScreenColumn
 import app.cozitopia.ui.Screen
+import app.cozitopia.ui.SecondaryButton
+import app.cozitopia.ui.ShellHomes
 import app.cozitopia.ui.auth.AuthScreen
 import app.cozitopia.ui.auth.AuthViewModel
 import app.cozitopia.ui.calendar.CalendarScreen
@@ -67,68 +61,26 @@ fun App() {
     val strings = remember(language) { Strings(language) }
     CompositionLocalProvider(LocalStrings provides strings) {
         CozitopiaTheme {
-            if (SupabaseProvider.isConfigured) {
-                ConfiguredApp(language) { language = it }
-            } else {
-                NotConfiguredApp(language) { language = it }
+            AdaptiveLayout {
+                if (SupabaseProvider.isConfigured) {
+                    ConfiguredApp(language) { language = it }
+                } else {
+                    NotConfiguredApp()
+                }
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AppFrame(
-    language: AppLanguage,
-    onLanguageChange: (AppLanguage) -> Unit,
-    snackbarHost: SnackbarHostState,
-    onLogout: (() -> Unit)?,
-    bottomBar: @Composable () -> Unit,
-    content: @Composable (Modifier) -> Unit,
-) {
+private fun NotConfiguredApp() {
     val strings = LocalStrings.current
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(strings(StringKey.APP_NAME)) },
-                actions = {
-                    DropdownSelect(
-                        selected = language.name,
-                        options = AppLanguage.entries,
-                        optionLabel = { it.name },
-                        onSelect = onLanguageChange,
-                    )
-                    if (onLogout != null) {
-                        IconButton(onClick = onLogout) {
-                            Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = strings(StringKey.LOG_OUT))
-                        }
-                    }
-                },
-            )
-        },
-        bottomBar = bottomBar,
-        snackbarHost = { SnackbarHost(snackbarHost) },
-        content = { padding ->
-            Box(Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-                Box(Modifier.widthIn(max = 720.dp).fillMaxSize()) {
-                    content(Modifier.fillMaxSize())
-                }
-            }
-        },
-    )
-}
-
-@Composable
-private fun NotConfiguredApp(language: AppLanguage, onLanguageChange: (AppLanguage) -> Unit) {
-    val strings = LocalStrings.current
-    AppFrame(language, onLanguageChange, remember { SnackbarHostState() }, null, {}) { modifier ->
-        Column(
-            modifier = modifier.fillMaxSize().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
-        ) {
-            Text(text = strings(StringKey.NOT_CONFIGURED_TITLE), style = MaterialTheme.typography.titleLarge)
-            Text(text = strings(StringKey.NOT_CONFIGURED_BODY))
-        }
+    ScreenColumn {
+        EmptyState(
+            icon = Icons.Outlined.SettingsSuggest,
+            title = strings(StringKey.NOT_CONFIGURED_TITLE),
+            body = strings(StringKey.NOT_CONFIGURED_BODY),
+        )
     }
 }
 
@@ -139,98 +91,98 @@ private fun ConfiguredApp(language: AppLanguage, onLanguageChange: (AppLanguage)
     val authState by authViewModel.state.collectAsState()
     val snackbarHost = remember { SnackbarHostState() }
     val strings by rememberUpdatedState(LocalStrings.current)
-    var screen by rememberSaveable { mutableStateOf(Screen.HOMES) }
-    val signedIn = authState as? AuthState.SignedIn
 
     LaunchedEffect(container) {
         container.errors.messages.collect { message ->
             snackbarHost.showSnackbar(
-                message = message.error.text(strings),
-                actionLabel = if (message.persistent) strings(StringKey.DISMISS) else null,
-                duration = if (message.persistent) SnackbarDuration.Indefinite else SnackbarDuration.Short,
+                CozySnackbarVisuals(
+                    message = message.error.text(strings),
+                    actionLabel = if (message.persistent) strings(StringKey.DISMISS) else null,
+                    duration = if (message.persistent) SnackbarDuration.Indefinite else SnackbarDuration.Short,
+                    isError = message.persistent,
+                ),
             )
         }
     }
 
-    AppFrame(
-        language = language,
-        onLanguageChange = onLanguageChange,
-        snackbarHost = snackbarHost,
-        onLogout = signedIn?.let { { authViewModel.signOut() } },
-        bottomBar = {
-            if (signedIn != null) {
-                NavigationBar {
-                    Screen.entries.forEach { entry ->
-                        NavigationBarItem(
-                            selected = screen == entry,
-                            onClick = { screen = entry },
-                            icon = { Icon(entry.icon, contentDescription = null) },
-                            label = { Text(LocalStrings.current(entry.title)) },
-                        )
-                    }
-                }
-            }
-        },
-    ) { modifier ->
-        when (val current = authState) {
-            AuthState.Loading -> Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-            AuthState.SignedOut -> AuthScreen(authViewModel, modifier)
-            is AuthState.SignedIn -> key(current.userId) {
-                SignedInContent(current, container, screen, { screen = it }, modifier)
-            }
+    when (val current = authState) {
+        AuthState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+        }
+        AuthState.SignedOut -> Box(Modifier.fillMaxSize()) {
+            AuthScreen(authViewModel, language, onLanguageChange)
+            CozySnackbarHost(snackbarHost, Modifier.align(Alignment.BottomCenter))
+        }
+        is AuthState.SignedIn -> key(current.userId) {
+            SignedInApp(current, container, language, onLanguageChange, snackbarHost, authViewModel::signOut)
         }
     }
 }
 
 @Composable
-private fun SignedInContent(
+private fun SignedInApp(
     user: AuthState.SignedIn,
     container: AppContainer,
-    screen: Screen,
-    onNavigate: (Screen) -> Unit,
-    modifier: Modifier,
+    language: AppLanguage,
+    onLanguageChange: (AppLanguage) -> Unit,
+    snackbarHost: SnackbarHostState,
+    onSignOut: () -> Unit,
 ) {
+    var screen by rememberSaveable { mutableStateOf(Screen.HOMES) }
     val homesViewModel = viewModel(key = "homes-${user.userId}") {
         HomesViewModel(user, container.homes, container.errors)
     }
+    val profileViewModel = viewModel(key = "profile-${user.userId}") {
+        ProfileViewModel(user.userId, container.profiles, container.errors)
+    }
     val homesState by homesViewModel.state.collectAsState()
+    val displayName by profileViewModel.displayName.collectAsState()
     val membership = homesState.current
 
-    when {
-        screen == Screen.HOMES -> HomesScreen(homesViewModel, modifier)
-        screen == Screen.PROFILE -> {
-            val profileViewModel = viewModel(key = "profile-${user.userId}") {
-                ProfileViewModel(user.userId, container.profiles, container.errors)
+    CozyShell(
+        screen = screen,
+        onNavigate = { screen = it },
+        homes = ShellHomes(homesState.memberships, membership, homesViewModel::select),
+        displayName = displayName,
+        language = language,
+        onLanguageChange = onLanguageChange,
+        snackbarHost = snackbarHost,
+    ) {
+        when {
+            screen == Screen.HOMES -> HomesScreen(homesViewModel)
+            screen == Screen.PROFILE -> ProfileScreen(profileViewModel, user.email, onSignOut)
+            membership == null -> ScreenColumn {
+                EmptyState(
+                    icon = Icons.Outlined.Cottage,
+                    title = LocalStrings.current(StringKey.NO_HOMES_TITLE),
+                    body = LocalStrings.current(StringKey.NO_HOME_SELECTED),
+                ) {
+                    SecondaryButton(LocalStrings.current(StringKey.NAV_HOMES), { screen = Screen.HOMES })
+                }
             }
-            ProfileScreen(profileViewModel, modifier)
-        }
-        membership == null -> Box(modifier.fillMaxSize().padding(16.dp)) {
-            Text(LocalStrings.current(StringKey.NO_HOME_SELECTED))
-        }
-        else -> {
-            val homeId = membership.home.id
-            when (screen) {
-                Screen.MEMBERS -> {
-                    val membersViewModel = viewModel(key = "members-$homeId") {
-                        MembersViewModel(homeId, container.homes, container.errors, homesViewModel::refresh)
+            else -> {
+                val homeId = membership.home.id
+                when (screen) {
+                    Screen.MEMBERS -> {
+                        val membersViewModel = viewModel(key = "members-$homeId") {
+                            MembersViewModel(homeId, container.homes, container.errors, homesViewModel::refresh)
+                        }
+                        MembersScreen(membersViewModel, user.userId, membership)
                     }
-                    MembersScreen(membersViewModel, user.userId, membership.role, modifier)
-                }
-                Screen.CHECKLIST -> {
-                    val checklistViewModel = viewModel(key = "checklist-$homeId") {
-                        ChecklistViewModel(homeId, container.homes, container.tasks, container.errors)
+                    Screen.CHECKLIST -> {
+                        val checklistViewModel = viewModel(key = "checklist-$homeId") {
+                            ChecklistViewModel(homeId, container.homes, container.tasks, container.errors)
+                        }
+                        ChecklistScreen(checklistViewModel, user.userId) { screen = Screen.CALENDAR }
                     }
-                    ChecklistScreen(checklistViewModel, { onNavigate(Screen.CALENDAR) }, modifier)
-                }
-                else -> {
-                    val calendarViewModel = viewModel(key = "calendar-$homeId-${membership.home.name}") {
-                        CalendarViewModel(
-                            homeId, membership.home.name, container.homes, container.tasks, container.errors,
-                        )
+                    else -> {
+                        val calendarViewModel = viewModel(key = "calendar-$homeId-${membership.home.name}") {
+                            CalendarViewModel(
+                                homeId, membership.home.name, container.homes, container.tasks, container.errors,
+                            )
+                        }
+                        CalendarScreen(calendarViewModel, user.userId)
                     }
-                    CalendarScreen(calendarViewModel, user.userId, modifier)
                 }
             }
         }

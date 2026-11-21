@@ -17,10 +17,13 @@ test("logged-in screens render", async ({ page }, testInfo) => {
 
     const viewport = page.viewportSize();
     if (!viewport) throw new Error("viewport size unavailable");
-    const navY = viewport.height - 40;
+    const wide = viewport.width >= 840;
     for (const [index, name] of SCREEN_NAMES.slice(1).entries()) {
-        const x = (viewport.width * (index + 1.5)) / SCREEN_NAMES.length;
-        await page.mouse.click(x, navY);
+        if (wide) {
+            await page.mouse.click(100, 224 + 56 * (index + 1));
+        } else {
+            await page.mouse.click((viewport.width * (index + 1.5)) / SCREEN_NAMES.length, viewport.height - 40);
+        }
         await page.waitForTimeout(6000);
         await page.screenshot({ path: `${SCREENSHOT_DIR}/${project}-${name}.png`, fullPage: true });
     }
