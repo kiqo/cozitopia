@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material3.CircularProgressIndicator
@@ -107,7 +108,13 @@ private fun AppFrame(
         },
         bottomBar = bottomBar,
         snackbarHost = { SnackbarHost(snackbarHost) },
-        content = { padding -> content(Modifier.padding(padding)) },
+        content = { padding ->
+            Box(Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+                Box(Modifier.widthIn(max = 720.dp).fillMaxSize()) {
+                    content(Modifier.fillMaxSize())
+                }
+            }
+        },
     )
 }
 

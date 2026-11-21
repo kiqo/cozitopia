@@ -31,6 +31,9 @@ import androidx.compose.ui.unit.dp
 import app.cozitopia.domain.Role
 import app.cozitopia.i18n.LocalStrings
 import app.cozitopia.i18n.StringKey
+import app.cozitopia.ui.CozyBanner
+import app.cozitopia.ui.CozySticker
+import app.cozitopia.ui.STICKERS
 import app.cozitopia.i18n.key
 import app.cozitopia.ui.DropdownSelect
 
@@ -52,14 +55,16 @@ fun MembersScreen(
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        CozyBanner()
         Text(text = strings(StringKey.MEMBERS_TITLE), style = MaterialTheme.typography.titleLarge)
-        members.forEach { member ->
+        members.forEachIndexed { index, member ->
             Card(modifier = Modifier.fillMaxWidth()) {
                 Row(
                     modifier = Modifier.padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
+                    CozySticker(STICKERS[index % STICKERS.size], size = 44.dp)
                     Column(modifier = Modifier.weight(1f)) {
                         Text(text = member.homie.name, style = MaterialTheme.typography.titleMedium)
                         Text(text = member.email, style = MaterialTheme.typography.bodySmall)

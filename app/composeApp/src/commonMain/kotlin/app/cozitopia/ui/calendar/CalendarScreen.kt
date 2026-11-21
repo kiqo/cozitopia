@@ -1,7 +1,12 @@
 package app.cozitopia.ui.calendar
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -37,6 +42,8 @@ import app.cozitopia.domain.Homie
 import app.cozitopia.domain.IcsExporter
 import app.cozitopia.i18n.LocalStrings
 import app.cozitopia.i18n.StringKey
+import app.cozitopia.ui.CozyBanner
+import app.cozitopia.ui.CozyEmptyState
 import app.cozitopia.ui.assigneeLabel
 
 @Composable
@@ -49,6 +56,7 @@ fun CalendarScreen(viewModel: CalendarViewModel, myUserId: String, modifier: Mod
     val others = state.homies.filter { it.userId != myUserId }
 
     Column(modifier = modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        CozyBanner()
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = strings(StringKey.CALENDAR_TITLE),
@@ -57,15 +65,25 @@ fun CalendarScreen(viewModel: CalendarViewModel, myUserId: String, modifier: Mod
             )
             Button(onClick = { exporting = true }) { Text(strings(StringKey.EXPORT_ICS)) }
         }
-        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterOption(state.filter, CalendarFilter.All, strings(StringKey.FILTER_ALL), viewModel)
-            FilterOption(state.filter, CalendarFilter.Me(myUserId), strings(StringKey.FILTER_ME), viewModel)
-            others.forEach { FilterOption(state.filter, CalendarFilter.Person(it.userId), it.name, viewModel) }
-            FilterOption(state.filter, CalendarFilter.Everyone, strings(StringKey.EVERYONE), viewModel)
-            FilterOption(state.filter, CalendarFilter.Unassigned, strings(StringKey.UNASSIGNED), viewModel)
+        Box {
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterOption(state.filter, CalendarFilter.All, strings(StringKey.FILTER_ALL), viewModel)
+                FilterOption(state.filter, CalendarFilter.Me(myUserId), strings(StringKey.FILTER_ME), viewModel)
+                others.forEach { FilterOption(state.filter, CalendarFilter.Person(it.userId), it.name, viewModel) }
+                FilterOption(state.filter, CalendarFilter.Everyone, strings(StringKey.EVERYONE), viewModel)
+                FilterOption(state.filter, CalendarFilter.Unassigned, strings(StringKey.UNASSIGNED), viewModel)
+            }
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .align(Alignment.CenterEnd)
+                    .width(32.dp)
+                    .background(Brush.horizontalGradient(listOf(Color.Transparent, MaterialTheme.colorScheme.background))),
+            )
         }
         if (occurrences.isEmpty()) {
             Text(strings(StringKey.NO_OCCURRENCES))
+            CozyEmptyState()
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(occurrences) { occurrence ->

@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -23,17 +24,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import app.cozitopia.domain.DEFAULT_HOME_NAME
 import app.cozitopia.domain.Role
 import app.cozitopia.i18n.LocalStrings
 import app.cozitopia.i18n.StringKey
 import app.cozitopia.i18n.key
+import app.cozitopia.ui.CozyEmptyState
+import app.cozitopia.ui.CozySkyScene
+import app.cozitopia.ui.StickerRow
 
 @Composable
 fun HomesScreen(viewModel: HomesViewModel, modifier: Modifier = Modifier) {
     val strings = LocalStrings.current
     val state by viewModel.state.collectAsState()
-    var newHomeName by remember { mutableStateOf(DEFAULT_HOME_NAME) }
+    var newHomeName by remember { mutableStateOf("") }
     val current = state.current
     var renamed by remember(current?.home?.id, current?.home?.name) {
         mutableStateOf(current?.home?.name.orEmpty())
@@ -43,6 +46,12 @@ fun HomesScreen(viewModel: HomesViewModel, modifier: Modifier = Modifier) {
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        if (state.memberships.isEmpty()) {
+            CozyEmptyState()
+        } else {
+            CozySkyScene()
+            StickerRow(Modifier.widthIn(max = 720.dp).fillMaxWidth())
+        }
         if (state.invitations.isNotEmpty()) {
             Text(text = strings(StringKey.PENDING_INVITATIONS), style = MaterialTheme.typography.titleLarge)
             state.invitations.forEach { invitation ->
@@ -112,7 +121,7 @@ fun HomesScreen(viewModel: HomesViewModel, modifier: Modifier = Modifier) {
             OutlinedTextField(
                 value = newHomeName,
                 onValueChange = { newHomeName = it },
-                label = { Text(strings(StringKey.HOME_NAME)) },
+                label = { Text(strings(StringKey.NEW_HOME_NAME)) },
                 singleLine = true,
                 modifier = Modifier.weight(1f),
             )

@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.cozitopia.i18n.LocalStrings
 import app.cozitopia.i18n.StringKey
+import app.cozitopia.ui.CozyBanner
 import app.cozitopia.i18n.key
 import app.cozitopia.ui.DropdownSelect
 import kotlinx.datetime.DayOfWeek
@@ -34,6 +35,7 @@ fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier) {
     var displayName by remember(saved) { mutableStateOf(saved) }
 
     Column(modifier = modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        CozyBanner()
         Text(text = strings(StringKey.PROFILE_TITLE), style = MaterialTheme.typography.titleLarge)
         OutlinedTextField(
             value = displayName,

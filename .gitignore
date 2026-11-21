@@ -163,3 +163,11 @@ data/house_chores_de.csv
 
 # macOS
 .DS_Store
+
+# e2e
+e2e/node_modules/
+e2e/screenshots/
+e2e/test-results/
+e2e/playwright-report/
+e2e/.env.local
+e2e/auth.json

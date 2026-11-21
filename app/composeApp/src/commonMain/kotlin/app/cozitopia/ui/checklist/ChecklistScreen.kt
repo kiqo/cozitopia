@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -51,6 +52,9 @@ import app.cozitopia.domain.Workload
 import app.cozitopia.domain.WorkloadSummary
 import app.cozitopia.i18n.LocalStrings
 import app.cozitopia.i18n.StringKey
+import app.cozitopia.ui.CozyBanner
+import app.cozitopia.ui.CozyEmptyState
+import app.cozitopia.ui.StickerRow
 import app.cozitopia.i18n.Strings
 import app.cozitopia.ui.assigneeLabel
 import app.cozitopia.ui.today
@@ -81,6 +85,7 @@ fun ChecklistScreen(viewModel: ChecklistViewModel, onOpenCalendar: () -> Unit, m
     val strings = LocalStrings.current
     val state by viewModel.state.collectAsState()
     LaunchedEffect(viewModel) { viewModel.refresh() }
+    var helpExpanded by remember { mutableStateOf(false) }
     val picker = rememberFilePickerLauncher(type = FileKitType.File("csv")) { file ->
         file?.let { picked -> viewModel.importCsv { picked.readString() } }
     }
@@ -89,21 +94,27 @@ fun ChecklistScreen(viewModel: ChecklistViewModel, onOpenCalendar: () -> Unit, m
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        CozyBanner()
         Text(text = strings(StringKey.CHECKLIST_TITLE), style = MaterialTheme.typography.titleLarge)
-        Text(text = strings(StringKey.CHECKLIST_HELP), style = MaterialTheme.typography.bodySmall)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TextButton(onClick = { helpExpanded = !helpExpanded }) { Text(strings(StringKey.CHECKLIST_HELP_TOGGLE)) }
+        if (helpExpanded) {
+            Text(text = strings(StringKey.CHECKLIST_HELP), style = MaterialTheme.typography.bodySmall)
+        }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = viewModel::downloadTemplate) { Text(strings(StringKey.DOWNLOAD_TEMPLATE)) }
             OutlinedButton(onClick = viewModel::exportChecklist, enabled = state.tasks.isNotEmpty()) {
                 Text(strings(StringKey.EXPORT_CSV))
             }
             Button(onClick = { picker.launch() }) { Text(strings(StringKey.UPLOAD_CSV)) }
         }
+        StickerRow(Modifier.fillMaxWidth())
         if (state.skippedLines.isNotEmpty()) {
             Text(
                 text = strings(StringKey.SKIPPED_LINES, "lines" to state.skippedLines.joinToString()),
                 color = MaterialTheme.colorScheme.error,
             )
         }
+        if (state.tasks.isEmpty()) CozyEmptyState()
         if (state.tasks.isNotEmpty()) {
             TaskTable(state.tasks, state.homies, state.importCount, viewModel, strings)
             WorkloadSummaryCard(WorkloadSummary.of(state.tasks, state.homies), strings)

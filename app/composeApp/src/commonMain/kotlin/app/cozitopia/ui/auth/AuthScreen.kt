@@ -1,7 +1,9 @@
 package app.cozitopia.ui.auth
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -22,11 +24,16 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import app.cozitopia.i18n.LocalStrings
 import app.cozitopia.i18n.StringKey
+import cozitopia.composeapp.generated.resources.Res
+import cozitopia.composeapp.generated.resources.cozy_village
+import org.jetbrains.compose.resources.painterResource
 
 @Composable
 fun AuthScreen(viewModel: AuthViewModel, modifier: Modifier = Modifier) {
@@ -40,8 +47,18 @@ fun AuthScreen(viewModel: AuthViewModel, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
+        Image(
+            painter = painterResource(Res.drawable.cozy_village),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .widthIn(max = 640.dp)
+                .fillMaxWidth()
+                .aspectRatio(1344f / 768f)
+                .clip(MaterialTheme.shapes.large),
+        )
         Column(
             modifier = Modifier.widthIn(max = 420.dp).fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(12.dp),
